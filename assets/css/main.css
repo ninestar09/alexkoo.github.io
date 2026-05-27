@@ -1,4 +1,4 @@
-/**
+﻿/**
 * Template Name: PhotoFolio - v1.1.1
 * Template URL: https://bootstrapmade.com/photofolio-bootstrap-photography-website-template/
 * Author: BootstrapMade.com
@@ -15,11 +15,11 @@
   --font-primary: "Inter", sans-serif;
   --font-secondary: "Cardo", sans-serif;
   --font-modern: "Plus Jakarta Sans", sans-serif;
-  /* Display / page titles + top bar (Mansory) — add WOFF2 under assets/fonts/ (licensed) */
+  /* Display / page titles + top bar (Mansory) â€” add WOFF2 under assets/fonts/ (licensed) */
   --font-header: "Mansory", var(--font-primary), system-ui, sans-serif;
 }
 
-/* Mansory (Larin Type Co.) — place mansory-regular.woff2 / .woff in assets/fonts/ after purchase */
+/* Mansory (Larin Type Co.) â€” place mansory-regular.woff2 / .woff in assets/fonts/ after purchase */
 @font-face {
   font-family: "Mansory";
   font-style: normal;
@@ -102,7 +102,7 @@ body > #preloader {
   flex: none;
 }
 
-/* Full-page parallax background – image path: assets/img/background-parallax.png */
+/* Full-page parallax background â€“ image path: assets/img/background-parallax.png */
 .bg-parallax {
   position: fixed;
   inset: 0;
@@ -206,7 +206,7 @@ h6 {
   }
 }
 
-/* Mobile/vertical: prevent title clipping – more top padding, safe horizontal padding */
+/* Mobile/vertical: prevent title clipping â€“ more top padding, safe horizontal padding */
 @media (max-width: 767px) {
   .page-header {
     padding-top: 180px;
@@ -230,6 +230,15 @@ h6 {
 
 .page-header p {
   color: rgba(255, 255, 255, 0.8);
+}
+
+.gallery-back-strip {
+  padding: 56px 0 80px;
+  text-align: center;
+}
+
+.gallery-back-strip .gallery-back-link {
+  margin-top: 0;
 }
 
 /* Same glass style as index hero "Feel Free to reachout" */
@@ -266,7 +275,7 @@ h6 {
 }
 
 /*--------------------------------------------------------------
-# Scroll top button – glass style (matches site CTAs)
+# Scroll top button â€“ glass style (matches site CTAs)
 --------------------------------------------------------------*/
 .scroll-top {
   position: fixed;
@@ -465,7 +474,7 @@ h6 {
   position: relative;
 }
 
-/* About page only: match header strip to page base (same as body) — pill still uses glass on this */
+/* About page only: match header strip to page base (same as body) â€” pill still uses glass on this */
 body.page-about .header {
   background-color: var(--color-body-bg);
   background-image: none;
@@ -485,7 +494,7 @@ body.page-about #aboutPageInner > .about-orbit-hero {
   transition: 0.3s;
 }
 
-/* Invisible flex column when logo text removed — keeps pill nav centered */
+/* Invisible flex column when logo text removed â€” keeps pill nav centered */
 .header__brand-spacer {
   transition: 0.3s;
 }
@@ -710,7 +719,7 @@ body.page-about #aboutPageInner > .about-orbit-hero {
 }
 
 /*--------------------------------------------------------------
-# Pill bar at medium width (992px–1279px)
+# Pill bar at medium width (992pxâ€“1279px)
 --------------------------------------------------------------*/
 @media (min-width: 992px) and (max-width: 1279px) {
   .navbar {
@@ -764,14 +773,14 @@ body.page-about #aboutPageInner > .about-orbit-hero {
 }
 
 /*--------------------------------------------------------------
-# Hide hamburger – pill nav only at all sizes
+# Hide hamburger â€“ pill nav only at all sizes
 --------------------------------------------------------------*/
 .mobile-nav-show,
 .mobile-nav-hide {
   display: none !important;
 }
 
-/* Sliding pill indicator – base (used at all breakpoints) */
+/* Sliding pill indicator â€“ base (used at all breakpoints) */
 .navbar-pill {
   position: relative;
 }
@@ -1069,7 +1078,7 @@ body.page-about #aboutPageInner > .about-orbit-hero {
 }
 
 /*--------------------------------------------------------------
-# Gallery – gradient background (black → blue → purple), subtle hover glow
+# Gallery â€“ gradient background (black â†’ blue â†’ purple), subtle hover glow
 --------------------------------------------------------------*/
 .gallery {
   margin-top: 0;
@@ -1208,7 +1217,7 @@ body.page-about #aboutPageInner > .about-orbit-hero {
   animation-play-state: running;
 }
 
-/* Stepped “digital” stripes – repeat with fixed pitch */
+/* Stepped â€œdigitalâ€ stripes â€“ repeat with fixed pitch */
 #gallery .gallery-ambient__lines--step {
   background-image: repeating-linear-gradient(
     86deg,
@@ -1329,7 +1338,7 @@ body.page-about #aboutPageInner > .about-orbit-hero {
   z-index: 1;
 }
 
-/* On gallery pages, use only main gradient – hide section’s own gradient to avoid bands */
+/* On gallery pages, use only main gradient â€“ hide sectionâ€™s own gradient to avoid bands */
 #main.main-gallery-bg .gallery::before,
 #main.main-gallery-bg .gallery::after {
   display: none;
@@ -1380,7 +1389,7 @@ body.page-about #aboutPageInner > .about-orbit-hero {
   transform: scale(1.1);
 }
 
-/* Index (#gallery): thumbnail hover — number, accent line, title animate in/out */
+/* Index (#gallery): thumbnail hover â€” number, accent line, title animate in/out */
 #gallery a.gallery-item img {
   display: block;
   position: relative;
@@ -1605,7 +1614,7 @@ body.page-about #aboutPageInner > .about-orbit-hero {
   font-size: 14px;
 }
 
-/* Glass style – same as hero / page-header CTA */
+/* Glass style â€“ same as hero / page-header CTA */
 .gallery-single .portfolio-info .btn-visit {
   font-family: var(--font-primary);
   font-weight: 500;
@@ -1912,7 +1921,7 @@ body.page-about #aboutPageInner > .about-orbit-hero {
   padding: 10px 12px;
 }
 
-/* Glass style – same as hero / page-header CTA */
+/* Glass style â€“ same as hero / page-header CTA */
 .contact .php-email-form button[type=submit] {
   font-family: var(--font-primary);
   font-weight: 500;
@@ -1970,7 +1979,7 @@ body.page-about #aboutPageInner > .about-orbit-hero {
 /* Hero: tall enough to show full 16:9 frame without cropping */
 .hero {
   width: 100%;
-  min-height: 56.25vw; /* 16:9 aspect ratio – full frame visible */
+  min-height: 56.25vw; /* 16:9 aspect ratio â€“ full frame visible */
   background: transparent;
   position: relative;
   padding: 140px 0 60px 0;
@@ -2003,7 +2012,7 @@ body.page-about #aboutPageInner > .about-orbit-hero {
   }
 }
 
-/* Scroll-driven animation: 16:9 frame sequence – no crop (contain) */
+/* Scroll-driven animation: 16:9 frame sequence â€“ no crop (contain) */
 .hero-scroll-frames {
   position: absolute;
   inset: 0;
@@ -2015,7 +2024,7 @@ body.page-about #aboutPageInner > .about-orbit-hero {
   background: #000;
 }
 
-/* Soft blend from header into frame sequence – no hard cutoff */
+/* Soft blend from header into frame sequence â€“ no hard cutoff */
 .hero::before {
   content: "";
   position: absolute;
@@ -2108,7 +2117,7 @@ body.page-about #aboutPageInner > .about-orbit-hero {
   font-size: 18px;
 }
 
-/* Intro text between hero CTA and gallery – match hero black so no band */
+/* Intro text between hero CTA and gallery â€“ match hero black so no band */
 .hero-intro {
   padding: clamp(56px, 7vw, 96px) 0 clamp(64px, 8vw, 112px);
   background-color: #000;
@@ -2145,7 +2154,7 @@ body.page-about #aboutPageInner > .about-orbit-hero {
   }
 }
 
-/* CSS 3D wireframe cubes – isometric camera; rotation driven by JS (pointer drag) */
+/* CSS 3D wireframe cubes â€“ isometric camera; rotation driven by JS (pointer drag) */
 .hero-intro-cube {
   --cube-s: clamp(92px, 10.5vw, 168px);
   --cube-z: calc(var(--cube-s) / 2);
@@ -2224,7 +2233,7 @@ body.page-about #aboutPageInner > .about-orbit-hero {
   transform: rotateX(-90deg) translateZ(var(--cube-z));
 }
 
-/* Right cube only: each face 2×2 (two perpendicular splits) */
+/* Right cube only: each face 2Ã—2 (two perpendicular splits) */
 .hero-intro-cube--split-faces .hero-intro-cube__face {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -2272,7 +2281,7 @@ body.page-about #aboutPageInner > .about-orbit-hero {
   font-weight: 600;
 }
 
-/* Warm → cool underline tones (hero intro, four highlights) */
+/* Warm â†’ cool underline tones (hero intro, four highlights) */
 .hero-intro-text .hero-intro-highlight--tone-1 {
   color: rgba(255, 248, 240, 0.98);
   background: linear-gradient(to bottom, transparent 58%, rgba(255, 176, 120, 0.46) 58%);
@@ -2304,7 +2313,7 @@ body.page-about #aboutPageInner > .about-orbit-hero {
   font-weight: 600;
 }
 
-/* Glass-style CTA – frosted / liquid glass (hero, orion3d, and any .btn-get-started) */
+/* Glass-style CTA â€“ frosted / liquid glass (hero, orion3d, and any .btn-get-started) */
 .btn-get-started {
   font-family: var(--font-primary);
   font-weight: 500;
@@ -2408,7 +2417,7 @@ body.page-about #aboutPageInner > .about-orbit-hero {
 }
 
 /*--------------------------------------------------------------
-# Interactive 3D Cards – glass style (matches site CTAs)
+# Interactive 3D Cards â€“ glass style (matches site CTAs)
 --------------------------------------------------------------*/
 .interactive-card {
   width: 220px;
@@ -2559,7 +2568,7 @@ body.page-about #aboutPageInner > .about-orbit-hero {
 }
 
 /*--------------------------------------------------------------
-# Footer – continues gradient: deep purple → magenta (match first image)
+# Footer â€“ continues gradient: deep purple â†’ magenta (match first image)
 --------------------------------------------------------------*/
 .footer {
   margin-top: 0;

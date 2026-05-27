@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <base href="./" />
+  <title>Orion 3D Preview</title>
+  <link href="3D_WEB_VIEW/styles.css" rel="stylesheet">
+  <style>
+    html,
+    body {
+      margin: 0;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+    }
+
+    #canvas-container {
+      width: 100% !important;
+      height: 100% !important;
+      min-height: 0 !important;
+      margin: 0 !important;
+      position: relative;
+    }
+
+    #right-panel,
+    #preset-buttons,
+    .controls-info,
+    .back-to-interactive {
+      display: none !important;
+    }
+  </style>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js",
+      "three/examples/jsm/": "https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+
+<body>
+  <div id="canvas-container"></div>
+
+  <div id="indicator-overlay" class="indicator-overlay hidden">
+    <div class="indicator-content">
+      <button id="close-indicator" class="close-button" type="button">+</button>
+      <h3 id="indicator-title">Part Name</h3>
+      <p id="indicator-description">Part description will appear here</p>
+    </div>
+  </div>
+
+  <div class="controls-info hidden">
+    <p><strong>Controls:</strong></p>
+    <p>Left Click + Drag: Rotate</p>
+    <p>Right Click + Drag: Pan</p>
+    <p>Scroll: Zoom</p>
+  </div>
+
+  <div id="preset-buttons" class="preset-buttons hidden">
+    <button type="button" class="preset-button" data-part="Crew Module">Crew Module</button>
+    <button type="button" class="preset-button" data-part="European Service">European Service</button>
+    <button type="button" class="preset-button" data-part="Solar Arrays">Solar Arrays</button>
+    <button type="button" class="preset-button" data-part="Exhaust">Exhaust</button>
+  </div>
+
+  <div id="right-panel" class="right-panel collapsed">
+    <div id="load-panel" class="panel-section collapsed">
+      <div class="panel-header">
+        <h3>Load Model</h3>
+        <button id="load-panel-toggle" class="panel-toggle" type="button">+</button>
+      </div>
+      <div id="load-panel-content" class="panel-content">
+        <input type="file" id="model-file-input" accept=".gltf,.glb" hidden>
+        <button id="load-model-button" class="panel-button" type="button">Load Model</button>
+        <div class="replace-model-dropdown">
+          <button id="replace-model-button" class="panel-button" type="button">Replace Model</button>
+          <div id="replace-model-menu" class="replace-model-menu hidden">
+            <button type="button" class="replace-model-option" data-model="3D_WEB_VIEW/assets/models/NASA_Orion_GLTF_TEST1A.gltf">Model A</button>
+            <button type="button" class="replace-model-option" data-model="3D_WEB_VIEW/assets/models/NASA_Orion_GLTF_TEST1B.gltf">Model B</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="lighting-panel" class="panel-section collapsed">
+      <div class="panel-header">
+        <h3>Lighting &amp; Environment</h3>
+        <button id="lighting-toggle" class="panel-toggle" type="button">+</button>
+      </div>
+      <div id="lighting-content" class="panel-content">
+        <div class="lighting-section">
+          <h4 class="lighting-section-title">Background</h4>
+          <div class="lighting-control">
+            <label>Background Type:</label>
+            <select id="background-type" class="lighting-select">
+              <option value="stars" selected>Star Field</option>
+              <option value="color">Solid Color</option>
+            </select>
+          </div>
+          <div class="lighting-control" id="background-color-control" hidden>
+            <label>Background Color:</label>
+            <input type="color" id="background-color" value="#000000" class="lighting-color-picker">
+          </div>
+          <div class="lighting-control">
+            <label>Background Intensity: <span id="background-intensity-value">1.0</span></label>
+            <input type="range" id="background-intensity" min="0" max="2" step="0.1" value="1.0" class="lighting-slider">
+          </div>
+        </div>
+        <div class="lighting-section">
+          <h4 class="lighting-section-title">Environment (Model Reflections)</h4>
+          <div class="lighting-control">
+            <label>Environment Type:</label>
+            <select id="environment-type" class="lighting-select">
+              <option value="none">None</option>
+              <option value="hdri" selected>HDRI Map</option>
+            </select>
+          </div>
+          <div class="lighting-control" id="environment-hdri-control" hidden>
+            <label>HDRI File:</label>
+            <input type="file" id="hdri-file-input" accept=".hdr,.exr" hidden>
+            <button id="load-hdri-button" class="lighting-button-small" type="button">Load Custom HDRI</button>
+          </div>
+          <div class="lighting-control">
+            <label>Environment Intensity: <span id="env-intensity-value">1.0</span></label>
+            <input type="range" id="env-intensity" min="0" max="3" step="0.1" value="1.0" class="lighting-slider">
+          </div>
+        </div>
+        <div class="lighting-section">
+          <h4 class="lighting-section-title">Ambient Light</h4>
+          <div class="lighting-control">
+            <label>Intensity: <span id="ambient-intensity-value">0.5</span></label>
+            <input type="range" id="ambient-intensity" min="0" max="2" step="0.1" value="0.5" class="lighting-slider">
+          </div>
+          <div class="lighting-control">
+            <label>Color:</label>
+            <input type="color" id="ambient-color" value="#404040" class="lighting-color-picker">
+          </div>
+        </div>
+        <div class="lighting-section">
+          <h4 class="lighting-section-title">Main Light</h4>
+          <div class="lighting-control">
+            <label>Intensity: <span id="directional-intensity-value">1.0</span></label>
+            <input type="range" id="directional-intensity" min="0" max="3" step="0.1" value="1.0" class="lighting-slider">
+          </div>
+          <div class="lighting-control">
+            <label>Color:</label>
+            <input type="color" id="directional-color" value="#ffffff" class="lighting-color-picker">
+          </div>
+          <div class="lighting-control">
+            <label>X Position: <span id="directional-x-value">-5</span></label>
+            <input type="range" id="directional-x" min="-10" max="10" step="0.5" value="-5" class="lighting-slider">
+          </div>
+          <div class="lighting-control">
+            <label>Y Position: <span id="directional-y-value">5</span></label>
+            <input type="range" id="directional-y" min="-10" max="10" step="0.5" value="5" class="lighting-slider">
+          </div>
+          <div class="lighting-control">
+            <label>Z Position: <span id="directional-z-value">-5</span></label>
+            <input type="range" id="directional-z" min="-10" max="10" step="0.5" value="-5" class="lighting-slider">
+          </div>
+        </div>
+        <div class="lighting-section">
+          <h4 class="lighting-section-title">Fill Light</h4>
+          <div class="lighting-control">
+            <label>Intensity: <span id="fill-intensity-value">0.3</span></label>
+            <input type="range" id="fill-intensity" min="0" max="2" step="0.1" value="0.3" class="lighting-slider">
+          </div>
+          <div class="lighting-control">
+            <label>Color:</label>
+            <input type="color" id="fill-color" value="#4a9eff" class="lighting-color-picker">
+          </div>
+        </div>
+        <div class="lighting-section">
+          <h4 class="lighting-section-title">Point Light</h4>
+          <div class="lighting-control">
+            <label>Intensity: <span id="point-intensity-value">0.5</span></label>
+            <input type="range" id="point-intensity" min="0" max="2" step="0.1" value="0.5" class="lighting-slider">
+          </div>
+          <div class="lighting-control">
+            <label>Color:</label>
+            <input type="color" id="point-color" value="#4a9eff" class="lighting-color-picker">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="outliner-panel" class="panel-section collapsed">
+      <div class="panel-header">
+        <h3>Scene Outliner</h3>
+        <button id="outliner-toggle" class="panel-toggle" type="button">+</button>
+      </div>
+      <div id="outliner-content" class="panel-content">
+        <div id="outliner-tree" class="outliner-tree"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="loading-overlay" class="loading-overlay hidden">
+    <div class="loading-content">
+      <div class="loading-spinner"></div>
+      <h3 id="loading-title">Loading Model...</h3>
+      <div class="loading-progress-bar">
+        <div id="loading-progress" class="loading-progress"></div>
+      </div>
+      <p id="loading-percent">0%</p>
+    </div>
+  </div>
+
+  <script type="module" src="3D_WEB_VIEW/main.js"></script>
+</body>
+
+</html>

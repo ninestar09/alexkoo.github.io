@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cube Rain</title>
+  <link rel="stylesheet" href="cube-rain/assets/index-teXfPXLx.css" />
+  <style>
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #050505;
+    }
+
+    #root {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Embed: full-viewport canvas, no side panel or duplicate HUD */
+    .app {
+      width: 100% !important;
+      height: 100% !important;
+      max-width: 100%;
+      display: block !important;
+    }
+
+    .controlPanel {
+      display: none !important;
+    }
+
+    .canvasWrap {
+      position: absolute !important;
+      inset: 0 !important;
+      width: 100% !important;
+      height: 100% !important;
+      flex: none !important;
+      touch-action: none;
+    }
+
+    .canvasWrap canvas {
+      touch-action: none;
+    }
+
+    .hud {
+      display: none !important;
+    }
+
+    .topControls {
+      display: none !important;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="cube-rain/assets/index-_H01i304.js"></script>
+  <script>
+    (function () {
+      function pingResize() {
+        window.dispatchEvent(new Event('resize'));
+      }
+      function pingResizeSoon() {
+        pingResize();
+        requestAnimationFrame(pingResize);
+        setTimeout(pingResize, 100);
+        setTimeout(pingResize, 350);
+      }
+      window.addEventListener('load', pingResizeSoon);
+      if (typeof ResizeObserver !== 'undefined') {
+        new ResizeObserver(pingResizeSoon).observe(document.body);
+      }
+    })();
+  </script>
+</body>
+
+</html>

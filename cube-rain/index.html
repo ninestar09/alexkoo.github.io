@@ -2,6 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <base href="./" />
     <link rel="icon" type="image/svg+xml" href="./assets/cube_icon-BQG4x1BU.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>rain</title>
@@ -10,5 +11,22 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      (function () {
+        function pingResize() {
+          window.dispatchEvent(new Event('resize'));
+        }
+        window.addEventListener('load', function () {
+          requestAnimationFrame(function () {
+            requestAnimationFrame(pingResize);
+          });
+        });
+        if (typeof ResizeObserver !== 'undefined') {
+          new ResizeObserver(function () {
+            pingResize();
+          }).observe(document.body);
+        }
+      })();
+    </script>
   </body>
 </html>

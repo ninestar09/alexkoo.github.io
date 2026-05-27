@@ -124,6 +124,50 @@ document.addEventListener('DOMContentLoaded', () => {
   initPageLineTransition();
 
   /**
+   * Deep link to index sections (e.g. gallery pages → index.html#gallery)
+   */
+  function easeInCubic(t) {
+    return t * t * t;
+  }
+
+  function smoothScrollToY(targetY, duration) {
+    const startY = window.scrollY;
+    const distance = targetY - startY;
+    const ms = duration || 1500;
+    const start = performance.now();
+    function step(now) {
+      const t = Math.min(1, (now - start) / ms);
+      const eased = easeInCubic(t);
+      window.scrollTo(0, startY + distance * eased);
+      if (t < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
+  function scrollToLocationHash(options) {
+    const hash = window.location.hash;
+    if (!hash || hash.length < 2) return;
+    const target = document.querySelector(hash);
+    if (!target) return;
+    const { smooth = true, delay = 0, duration = 1500 } = options || {};
+    const run = () => {
+      const header = document.getElementById('header');
+      const offset = header ? header.offsetHeight + 20 : 100;
+      const top = Math.max(0, target.getBoundingClientRect().top + window.scrollY - offset);
+      if (smooth) smoothScrollToY(top, duration);
+      else window.scrollTo(0, top);
+    };
+    if (delay > 0) window.setTimeout(run, delay);
+    else run();
+  }
+
+  window.addEventListener('load', () => {
+    if (!window.location.hash) return;
+    const delay = preloader ? 1100 : 120;
+    scrollToLocationHash({ smooth: true, delay, duration: 1600 });
+  });
+
+  /**
    * Mobile nav toggle
    */
   const mobileNavShow = document.querySelector('.mobile-nav-show');
@@ -461,6 +505,63 @@ document.addEventListener('DOMContentLoaded', () => {
   const appContent = document.getElementById('app-content');
   const SPA_PAGES = ['index.html', 'about.html', 'contact.html', 'interactive3d.html'];
 
+  /** SPA: load spatial-maker assets when entering INTERACTIVE 3D */
+  function syncSpatialMakerHead(doc) {
+    const linkId = 'spatialMakerStyles';
+    const mapId = 'spatialMakerImportMap';
+    const needsMaker = !!doc.getElementById('spatial-maker');
+
+    doc.querySelectorAll('link[rel="stylesheet"]').forEach((link) => {
+      const href = link.getAttribute('href') || '';
+      if (!href.includes('spatial-maker.css')) return;
+      if (!document.getElementById(linkId)) {
+        const el = document.createElement('link');
+        el.id = linkId;
+        el.rel = 'stylesheet';
+        el.href = href;
+        el.setAttribute('data-spa-managed', 'true');
+        document.head.appendChild(el);
+      }
+    });
+
+    const incomingMap = doc.querySelector('script[type="importmap"]');
+    const existingMap = document.getElementById(mapId);
+    if (needsMaker && incomingMap) {
+      if (!existingMap) {
+        const clone = incomingMap.cloneNode(true);
+        clone.id = mapId;
+        clone.setAttribute('data-spa-managed', 'true');
+        document.head.appendChild(clone);
+      }
+    } else if (existingMap && existingMap.getAttribute('data-spa-managed') === 'true') {
+      existingMap.remove();
+    }
+
+    if (!needsMaker) {
+      const styleEl = document.getElementById(linkId);
+      if (styleEl) styleEl.remove();
+    }
+  }
+
+  let spatialMakerModulePromise = null;
+
+  function disposeSpatialMaker() {
+    if (window._spatialMakerCleanup) {
+      window._spatialMakerCleanup();
+      window._spatialMakerCleanup = null;
+    }
+  }
+
+  async function initSpatialMaker() {
+    if (!document.getElementById('spatial-maker')) return;
+    disposeSpatialMaker();
+    if (!spatialMakerModulePromise) {
+      spatialMakerModulePromise = import('./spatial-maker.js');
+    }
+    const mod = await spatialMakerModulePromise;
+    window._spatialMakerCleanup = mod.init();
+  }
+
   /**
    * About page: .fade-up sections (inline script does not run after SPA innerHTML swap)
    */
@@ -583,7 +684,9 @@ document.addEventListener('DOMContentLoaded', () => {
           }
           disposeHeroScrollFrames();
           disposeHeroIntroCubes();
+          disposeSpatialMaker();
           syncPageScopedStyles(doc);
+          syncSpatialMakerHead(doc);
           appContent.innerHTML = newContent.innerHTML;
           if (doc.title) document.title = doc.title;
           setActiveNav(href);
@@ -599,6 +702,7 @@ document.addEventListener('DOMContentLoaded', () => {
           initHeroIntroCubes();
           initGalleryAmbientObserver();
           initAboutFadeUpObserver();
+          initSpatialMaker();
           pageTxPlayEnter();
         })
         .catch(() => {
@@ -742,6 +846,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   initGalleryAmbientObserver();
   initAboutFadeUpObserver();
+  initSpatialMaker();
 
   /* AOS early so inner pages can animate header → body; refresh after assets load */
   aos_init();
