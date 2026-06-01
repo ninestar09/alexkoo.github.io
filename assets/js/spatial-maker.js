@@ -6,6 +6,8 @@ import * as GaussianSplats3D from '@mkkellogg/gaussian-splats-3d';
 import * as THREE from 'three';
 
 const DEFAULT_SCENE_FILE = 'sample_exported.ply';
+/** Same-origin default when the file is in the repo (e.g. tracked with Git LFS). */
+const DEFAULT_SCENE_LOCAL_PATH = '3D_WEB_VIEW/assets/models/sample_exported.ply';
 const DEFAULT_SAMPLE_DRIVE_ID = '15QSTS5HamtzGEi8ChxoGiX1nf15ITDzn';
 const DEFAULT_SAMPLE_DRIVE_VIEW_URL =
   'https://drive.google.com/file/d/15QSTS5HamtzGEi8ChxoGiX1nf15ITDzn/view?usp=drive_link';
@@ -117,6 +119,13 @@ function isPlyArrayBuffer(data) {
   return head.startsWith('ply');
 }
 
+/** True if the response is a Git LFS pointer (clone without `git lfs pull`, or some CI builds). */
+function isGitLfsPointerArrayBuffer(data) {
+  if (!data || data.byteLength > 4096) return false;
+  const head = new TextDecoder().decode(new Uint8Array(data, 0, data.byteLength));
+  return head.includes('git-lfs.github.com/spec');
+}
+
 async function fetchGoogleDriveArrayBuffer(fileId) {
   const baseUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
   let res = await fetch(baseUrl);
@@ -156,6 +165,18 @@ async function fetchRemoteDefaultSampleScene() {
 }
 
 async function fetchBundledDefaultScene() {
+  try {
+    const res = await fetch(resolveSiteUrl(DEFAULT_SCENE_LOCAL_PATH));
+    if (res.ok) {
+      const data = await res.arrayBuffer();
+      if (isPlyArrayBuffer(data) && !isGitLfsPointerArrayBuffer(data)) {
+        return { fileName: DEFAULT_SCENE_FILE, data, source: DEFAULT_SCENE_LOCAL_PATH };
+      }
+    }
+  } catch {
+    /* try remote / fallbacks */
+  }
+
   const remote = await fetchRemoteDefaultSampleScene();
   if (remote) return remote;
 

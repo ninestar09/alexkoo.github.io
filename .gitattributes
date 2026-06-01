@@ -1,0 +1,2 @@
+# Large Gaussian splat sample for INTERACTIVE 3D (Git LFS — avoids GitHub’s ~100MB blob limit)
+3D_WEB_VIEW/assets/models/sample_exported.ply filter=lfs diff=lfs merge=lfs -text

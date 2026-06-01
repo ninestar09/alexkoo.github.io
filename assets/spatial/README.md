@@ -2,17 +2,23 @@
 
 The INTERACTIVE 3D page auto-loads a scene on refresh.
 
-## Primary default (Google Drive)
+## Primary default (same origin — Git LFS)
 
-`sample_exported.ply` is downloaded from Google Drive on first visit:
+`3D_WEB_VIEW/assets/models/sample_exported.ply` is loaded first when present (recommended: track with **Git LFS** — see `docs/GIT_LFS_SAMPLE_SCENE.md`).
+
+After a successful load, the scene is cached in **IndexedDB** in the browser.
+
+## Google Drive fallback
+
+If the local file is missing or only a Git LFS pointer is served (e.g. some static hosts), the app tries to download from Google Drive:
 
 https://drive.google.com/file/d/15QSTS5HamtzGEi8ChxoGiX1nf15ITDzn/view?usp=drive_link
 
-The file must be shared as **Anyone with the link can view**. After a successful load, the scene is cached in **IndexedDB** so later visits do not re-download.
+The Drive file must be shared as **Anyone with the link can view** for that path to work.
 
-## Local fallbacks
+## Smaller local fallbacks
 
-If the Drive download fails, the viewer tries (in order):
+If both fail, the viewer tries (in order):
 
 1. `assets/spatial/default.splat`
 2. `assets/spatial/default.ply`
@@ -23,4 +29,4 @@ Supported formats: `.ply`, `.splat`, `.ksplat`
 
 ## Browser memory
 
-Once loaded, the scene (including transform settings) is saved in IndexedDB. Use **Load Sample Data** to fetch the Drive file again.
+Once loaded, the scene (including transform settings) is saved in IndexedDB. Use **Load Sample Data** to fetch the default again.
