@@ -24,6 +24,9 @@
   <link href="assets/css/main.css" rel="stylesheet">
   <link href="assets/css/spatial-maker.css" rel="stylesheet">
 
+  <!-- Optional: if Pages serves an LFS pointer or omits the big .ply, set a CORS-safe absolute URL (e.g. raw.githubusercontent.com/USER/REPO/BRANCH/3D_WEB_VIEW/assets/models/punk_room.ply). Comma-separated = try in order. -->
+  <!-- <meta name="spatial-sample-url" content=""> -->
+
   <script type="importmap">
   {
     "imports": {
@@ -162,13 +165,13 @@
             </button>
             <div class="sm-panel__body sm-panel__body--collapsed">
               <p class="sm-label">Position</p>
-              <div class="sm-field-row"><label>x</label><input type="range" min="-5" max="5" step="0.05" value="0" id="sm-pos-x"><input type="number" step="0.05" value="0" id="sm-pos-x-n"></div>
-              <div class="sm-field-row"><label>y</label><input type="range" min="-5" max="5" step="0.05" value="0" id="sm-pos-y"><input type="number" step="0.05" value="0" id="sm-pos-y-n"></div>
-              <div class="sm-field-row"><label>z</label><input type="range" min="-5" max="5" step="0.05" value="0" id="sm-pos-z"><input type="number" step="0.05" value="0" id="sm-pos-z-n"></div>
+              <div class="sm-field-row"><label>x</label><input type="range" min="-5" max="5" step="0.05" value="0.05" id="sm-pos-x"><input type="number" step="0.05" value="0.05" id="sm-pos-x-n"></div>
+              <div class="sm-field-row"><label>y</label><input type="range" min="-5" max="5" step="0.05" value="1.45" id="sm-pos-y"><input type="number" step="0.05" value="1.45" id="sm-pos-y-n"></div>
+              <div class="sm-field-row"><label>z</label><input type="range" min="-5" max="8" step="0.05" value="5" id="sm-pos-z"><input type="number" step="0.05" value="5" id="sm-pos-z-n"></div>
               <p class="sm-label">Rotation (°)</p>
-              <div class="sm-field-row"><label>x</label><input type="range" min="-180" max="180" step="1" value="0" id="sm-rot-x"><input type="number" min="-180" max="180" step="1" value="0" id="sm-rot-x-n"></div>
-              <div class="sm-field-row"><label>y</label><input type="range" min="-180" max="180" step="1" value="0" id="sm-rot-y"><input type="number" min="-180" max="180" step="1" value="0" id="sm-rot-y-n"></div>
-              <div class="sm-field-row"><label>z</label><input type="range" min="-180" max="180" step="1" value="0" id="sm-rot-z"><input type="number" min="-180" max="180" step="1" value="0" id="sm-rot-z-n"></div>
+              <div class="sm-field-row"><label>x</label><input type="range" min="-180" max="180" step="1" value="-20" id="sm-rot-x"><input type="number" min="-180" max="180" step="1" value="-20" id="sm-rot-x-n"></div>
+              <div class="sm-field-row"><label>y</label><input type="range" min="-180" max="180" step="1" value="180" id="sm-rot-y"><input type="number" min="-180" max="180" step="1" value="180" id="sm-rot-y-n"></div>
+              <div class="sm-field-row"><label>z</label><input type="range" min="-180" max="180" step="1" value="180" id="sm-rot-z"><input type="number" min="-180" max="180" step="1" value="180" id="sm-rot-z-n"></div>
               <p class="sm-label">Scale</p>
               <div class="sm-field-row"><label>uniform</label><input type="range" min="0.1" max="3" step="0.05" value="1" id="sm-scale-uniform"><input type="number" min="0.1" max="3" step="0.05" value="1" id="sm-scale-uniform-n"></div>
               <div class="sm-field-row"><label>x</label><input type="range" min="0.1" max="3" step="0.05" value="1" id="sm-scale-x"><input type="number" min="0.1" max="3" step="0.05" value="1" id="sm-scale-x-n"></div>
@@ -191,6 +194,13 @@
 
         <!-- Grid toggle kept for viewer logic (not shown in UI) -->
         <input type="checkbox" id="sm-grid" class="sm-visually-hidden" checked aria-hidden="true" tabindex="-1">
+
+        <div id="sm-orion-presets" class="sm-orion-presets" hidden role="group" aria-label="Orion camera views">
+          <button type="button" class="sm-orion-preset__btn" data-orion-preset="Crew Module">Crew Module</button>
+          <button type="button" class="sm-orion-preset__btn" data-orion-preset="European Service">European Service</button>
+          <button type="button" class="sm-orion-preset__btn" data-orion-preset="Solar Arrays">Solar Arrays</button>
+          <button type="button" class="sm-orion-preset__btn" data-orion-preset="Exhaust">Exhaust</button>
+        </div>
 
         <p class="sm-status" id="sm-status">Ready</p>
       </div>

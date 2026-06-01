@@ -5,12 +5,10 @@
 import * as GaussianSplats3D from '@mkkellogg/gaussian-splats-3d';
 import * as THREE from 'three';
 
-const DEFAULT_SCENE_FILE = 'sample_exported.ply';
+const DEFAULT_SCENE_FILE = 'punk_room.ply';
 /** Same-origin default when the file is in the repo (e.g. tracked with Git LFS). */
-const DEFAULT_SCENE_LOCAL_PATH = '3D_WEB_VIEW/assets/models/sample_exported.ply';
-const DEFAULT_SAMPLE_DRIVE_ID = '15QSTS5HamtzGEi8ChxoGiX1nf15ITDzn';
-const DEFAULT_SAMPLE_DRIVE_VIEW_URL =
-  'https://drive.google.com/file/d/15QSTS5HamtzGEi8ChxoGiX1nf15ITDzn/view?usp=drive_link';
+const DEFAULT_SCENE_LOCAL_PATH = '3D_WEB_VIEW/assets/models/punk_room.ply';
+/** Optional: comma- or space-separated absolute URLs (e.g. raw.githubusercontent.com) — see assets/spatial/README.md */
 const DEFAULT_SCENE_FALLBACK_URLS = [
   'assets/spatial/default.splat',
   'assets/spatial/default.ply',
@@ -60,8 +58,13 @@ const IDB_KEY = 'default';
 const SUPPORTED_EXT = new Set(['ply', 'splat', 'ksplat']);
 const UNSUPPORTED_EXT_MSG = '.sog and .sgp are not supported yet. Use .ply, .splat, or .ksplat.';
 const WORLD_UP = new THREE.Vector3(0, 1, 0);
+/** Default orbit eye position (world). Paired with {@link DEFAULT_LOOK_AT} and sample transform. */
 const DEFAULT_CAMERA_POSITION = new THREE.Vector3(0, 2, 6);
+/** Default orbit target (world). */
 const DEFAULT_LOOK_AT = new THREE.Vector3(0, 0, 0);
+/** View axis from default look-at toward default camera (used for bundled `punk_room` framing). */
+const SAMPLE_ORBIT_OFFSET = new THREE.Vector3().subVectors(DEFAULT_CAMERA_POSITION, DEFAULT_LOOK_AT);
+const SAMPLE_ORBIT_RADIUS = SAMPLE_ORBIT_OFFSET.length();
 
 let viewer = null;
 let viewerStarted = false;
@@ -126,40 +129,37 @@ function isGitLfsPointerArrayBuffer(data) {
   return head.includes('git-lfs.github.com/spec');
 }
 
-async function fetchGoogleDriveArrayBuffer(fileId) {
-  const baseUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
-  let res = await fetch(baseUrl);
-  if (!res.ok) throw new Error(`Drive download failed (${res.status})`);
-
-  const contentType = res.headers.get('content-type') || '';
-  if (contentType.includes('text/html')) {
-    const html = await res.text();
-    const confirm =
-      html.match(/confirm=([0-9A-Za-z_-]+)/)?.[1] ||
-      html.match(/name="confirm"\s+value="([^"]+)"/)?.[1] ||
-      html.match(/name="uuid"\s+value="([^"]+)"/)?.[1];
-    if (!confirm) {
-      throw new Error(
-        'Drive returned a sign-in or permission page. Share the file as “Anyone with the link”.'
-      );
-    }
-    res = await fetch(`${baseUrl}&confirm=${encodeURIComponent(confirm)}`);
-    if (!res.ok) throw new Error(`Drive download failed (${res.status})`);
-  }
-
-  const data = await res.arrayBuffer();
-  if (!isPlyArrayBuffer(data)) {
-    throw new Error('Drive download did not return a valid .ply file.');
-  }
-  return data;
+/** Absolute URLs from <meta name="spatial-sample-url" content="..."> (comma/space separated). */
+function getMetaSampleUrls() {
+  const el = document.querySelector('meta[name="spatial-sample-url"]');
+  const raw = el?.getAttribute('content');
+  if (!raw?.trim()) return [];
+  return raw.split(/[\s,]+/).map((s) => s.trim()).filter(Boolean);
 }
 
-async function fetchRemoteDefaultSampleScene() {
+function sceneRecordFromFetchedUrl(url, data) {
+  const fileName = url.split('/').pop()?.split('?')[0] || 'scene.dat';
+  const ext = getExt(fileName);
+  if (isGitLfsPointerArrayBuffer(data)) return null;
+  if (ext === 'ply') {
+    if (!isPlyArrayBuffer(data)) return null;
+    return { fileName, data, source: url };
+  }
+  if (ext === 'splat' || ext === 'ksplat') {
+    if (data.byteLength < 32) return null;
+    return { fileName, data, source: url };
+  }
+  return null;
+}
+
+async function tryFetchSceneUrl(url) {
+  const absolute = /^https?:\/\//i.test(url) ? url : resolveSiteUrl(url);
   try {
-    const data = await fetchGoogleDriveArrayBuffer(DEFAULT_SAMPLE_DRIVE_ID);
-    return { fileName: DEFAULT_SCENE_FILE, data, source: DEFAULT_SAMPLE_DRIVE_VIEW_URL };
-  } catch (err) {
-    console.warn('Remote sample scene download failed', err);
+    const res = await fetch(absolute, { mode: 'cors' });
+    if (!res.ok) return null;
+    const data = await res.arrayBuffer();
+    return sceneRecordFromFetchedUrl(absolute, data);
+  } catch {
     return null;
   }
 }
@@ -174,22 +174,17 @@ async function fetchBundledDefaultScene() {
       }
     }
   } catch {
-    /* try remote / fallbacks */
+    /* try meta + fallbacks */
   }
 
-  const remote = await fetchRemoteDefaultSampleScene();
-  if (remote) return remote;
+  for (const url of getMetaSampleUrls()) {
+    const rec = await tryFetchSceneUrl(url);
+    if (rec) return rec;
+  }
 
-  for (const url of DEFAULT_SCENE_FALLBACK_URLS) {
-    try {
-      const res = await fetch(resolveSiteUrl(url));
-      if (!res.ok) continue;
-      const data = await res.arrayBuffer();
-      const fileName = url.split('/').pop() || 'default.splat';
-      return { fileName, data, source: url };
-    } catch {
-      /* try next */
-    }
+  for (const rel of DEFAULT_SCENE_FALLBACK_URLS) {
+    const rec = await tryFetchSceneUrl(resolveSiteUrl(rel));
+    if (rec) return rec;
   }
   return null;
 }
@@ -242,10 +237,17 @@ function defaultTransform() {
   return { position: [0, 0, 0], rotationDeg: [0, 0, 0], scale: [1, 1, 1] };
 }
 
-const SAMPLE_ROTATION_Z_DEG = 180;
+const SAMPLE_DEFAULT_POSITION = [0.05, 1.45, 5];
+const SAMPLE_DEFAULT_ROTATION_DEG = [-20, 180, 180];
+const SAMPLE_DEFAULT_SCALE = [1, 1, 1];
 
+/** Default layer transform for bundled sample (`punk_room.ply` framing). */
 function defaultSampleTransform() {
-  return { position: [0, 0, 0], rotationDeg: [0, 0, SAMPLE_ROTATION_Z_DEG], scale: [1, 1, 1] };
+  return {
+    position: [...SAMPLE_DEFAULT_POSITION],
+    rotationDeg: [...SAMPLE_DEFAULT_ROTATION_DEG],
+    scale: [...SAMPLE_DEFAULT_SCALE],
+  };
 }
 
 function isDefaultSampleRecord(record) {
@@ -263,7 +265,7 @@ function transformForSampleRecord(record) {
         scale: [...record.transform.scale],
       }
     : defaultSampleTransform();
-  t.rotationDeg = [t.rotationDeg[0], t.rotationDeg[1], SAMPLE_ROTATION_Z_DEG];
+  t.rotationDeg = t.rotationDeg.map(normalizeDeg);
   return t;
 }
 
@@ -314,9 +316,14 @@ export function init() {
   const previewButtons = root.querySelectorAll('[data-sm-preview]');
   const cubeRainSoundBtn = document.getElementById('sm-cube-rain-sound');
   const cubeRainIntensityEl = document.getElementById('sm-cube-rain-intensity');
+  const orionPresetsEl = document.getElementById('sm-orion-presets');
   const pageHeader = document.querySelector('.sm-page-header');
   let activePreview = null;
   let previewLoadHandler = null;
+  /** OrbitControls `change` listener: keeps pan target inside scene bounds. */
+  let navigationBoundsHandler = null;
+  /** Re-fit bounds after progressive splat load expands the mesh AABB. */
+  let navigationBoundsProgressTimer = null;
 
   const tf = {
     px: document.getElementById('sm-pos-x'),
@@ -487,6 +494,8 @@ export function init() {
       previewLoadHandler = null;
     }
     setCubeRainUiActive(false);
+    orionPresetsEl?.setAttribute('hidden', '');
+    orionPresetsEl?.querySelectorAll('.sm-orion-preset__btn').forEach((b) => b.classList.remove('is-active'));
     previewHost.hidden = true;
     previewHost.setAttribute('aria-hidden', 'true');
     previewFrame.removeAttribute('src');
@@ -523,6 +532,8 @@ export function init() {
     activePreview = key;
     viewport?.classList.add('sm-viewport--active', 'sm-viewport--preview');
     setCubeRainUiActive(key === 'cube-rain');
+    orionPresetsEl?.setAttribute('hidden', '');
+    orionPresetsEl?.querySelectorAll('.sm-orion-preset__btn').forEach((b) => b.classList.remove('is-active'));
     previewHost.hidden = false;
     previewHost.removeAttribute('aria-hidden');
     previewFrame.title = cfg.title;
@@ -544,6 +555,9 @@ export function init() {
           syncCubeRainSoundButton();
           syncCubeRainIntensityFromIframe();
         }, 100);
+      }
+      if (key === 'orion') {
+        orionPresetsEl?.removeAttribute('hidden');
       }
       setStatus(`Showing ${cfg.title}`);
       let checks = 0;
@@ -605,11 +619,190 @@ export function init() {
     }
   }
 
+  function detachNavigationBoundsListener(v) {
+    if (v?.controls && navigationBoundsHandler) {
+      v.controls.removeEventListener('change', navigationBoundsHandler);
+    }
+    navigationBoundsHandler = null;
+  }
+
+  function applyOrbitInteractionFlags(v, pan, zoom, rotate, controlsEnabled = true) {
+    const apply = (ctrl) => {
+      if (!ctrl) return;
+      ctrl.enabled = controlsEnabled;
+      ctrl.enablePan = pan;
+      ctrl.enableZoom = zoom;
+      ctrl.enableRotate = rotate;
+      ctrl.update();
+    };
+    apply(v.perspectiveControls);
+    apply(v.orthographicControls);
+  }
+
+  /** Single visible layer is the bundled punk_room sample. */
+  function isBundledPunkRoomOnly() {
+    const vis = layers.filter((l) => l.visible);
+    return vis.length === 1 && vis[0].name === DEFAULT_SCENE_FILE;
+  }
+
+  /**
+   * Bundled punk_room: initial pose — camera at world origin, orbit target at splat center (fallback if too near origin).
+   * Wide min/max zoom so users can move through the scene; call {@link applyDefaultSampleZoomLimitsFromMesh} later without resetting pose.
+   */
+  function applyDefaultSampleOrbitFrame(v) {
+    if (!v?.splatMesh || !v.controls || !v.camera) return;
+    const box = new THREE.Box3().setFromObject(v.splatMesh);
+    if (box.isEmpty()) return;
+    const meshCenter = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z, 0.35);
+    const worldOrigin = DEFAULT_LOOK_AT.clone();
+
+    let target = meshCenter.clone();
+    const r0 = worldOrigin.distanceTo(target);
+    if (r0 < 0.12) {
+      const lookDir = SAMPLE_ORBIT_OFFSET.clone().normalize();
+      target = worldOrigin.clone().add(lookDir.multiplyScalar(Math.max(1.2, maxDim * 0.35)));
+    }
+
+    v.camera.up.copy(WORLD_UP);
+    v.camera.position.copy(worldOrigin);
+    v.camera.lookAt(target);
+
+    applyDefaultSampleZoomLimitsFromMesh(v);
+
+    const syncActive = (ctrl) => {
+      if (!ctrl || ctrl.object !== v.camera) return;
+      ctrl.target.copy(target);
+      ctrl.update();
+    };
+    syncActive(v.perspectiveControls);
+    syncActive(v.orthographicControls);
+  }
+
+  /** Updates dolly limits from current splat bounds without moving camera or target. */
+  function applyDefaultSampleZoomLimitsFromMesh(v) {
+    if (!v?.splatMesh || !v.controls || !v.camera) return;
+    const box = new THREE.Box3().setFromObject(v.splatMesh);
+    if (box.isEmpty()) return;
+    const size = box.getSize(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z, 0.35);
+    const minD = Math.max(0.04, maxDim * 0.04);
+    const maxD = Math.max(minD * 3, maxDim * 25);
+    const sync = (ctrl) => {
+      if (!ctrl || ctrl.object !== v.camera) return;
+      ctrl.minDistance = minD;
+      ctrl.maxDistance = maxD;
+      ctrl.update();
+    };
+    sync(v.perspectiveControls);
+    sync(v.orthographicControls);
+  }
+
+  function installDefaultSampleOrbitControls(v) {
+    detachNavigationBoundsListener(v);
+    delete v._navBounds;
+    delete v._navPivotSnapped;
+    applyDefaultSampleOrbitFrame(v);
+    applyOrbitInteractionFlags(v, true, true, true, true);
+    configureVerticalOrbit(v);
+    requestAnimationFrame(() => {
+      if (viewer !== v || !isBundledPunkRoomOnly()) return;
+      applyDefaultSampleZoomLimitsFromMesh(v);
+      configureVerticalOrbit(v);
+    });
+  }
+
+  function scheduleDefaultSampleOrbitRefresh(vInst) {
+    if (navigationBoundsProgressTimer) {
+      clearTimeout(navigationBoundsProgressTimer);
+      navigationBoundsProgressTimer = null;
+    }
+    navigationBoundsProgressTimer = setTimeout(() => {
+      navigationBoundsProgressTimer = null;
+      if (viewer === vInst && isBundledPunkRoomOnly() && vInst?.splatMesh) {
+        applyDefaultSampleZoomLimitsFromMesh(vInst);
+        configureVerticalOrbit(vInst);
+      }
+    }, 1800);
+  }
+
+  /**
+   * Keeps orbit target inside a padded axis-aligned box around the splat mesh and zoom between min/max distance.
+   * First call snaps the orbit pivot to the mesh center while preserving the camera→target offset.
+   */
+  function installNavigationBounds(v, opts = {}) {
+    const refreshOnly = !!opts.refreshOnly;
+    detachNavigationBoundsListener(v);
+    applyOrbitInteractionFlags(v, true, true, true, true);
+    if (!v?.splatMesh || !v.controls) return;
+
+    const box = new THREE.Box3().setFromObject(v.splatMesh);
+    if (box.isEmpty()) return;
+
+    const center = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z, 0.35);
+    const margin = Math.max(maxDim * 0.12, 0.12);
+    const half = size.clone().multiplyScalar(0.5).addScalar(margin);
+    const minT = center.clone().sub(half);
+    const maxT = center.clone().add(half);
+    v._navBounds = { minT, maxT, maxDim };
+
+    if (!refreshOnly && !v._navPivotSnapped) {
+      const offset = new THREE.Vector3().subVectors(v.camera.position, v.controls.target);
+      v.controls.target.copy(center);
+      v.camera.position.copy(center).add(offset);
+      v._navPivotSnapped = true;
+    } else {
+      v.controls.target.clamp(minT, maxT);
+    }
+
+    const applyZoomLimits = (ctrl) => {
+      if (!ctrl) return;
+      ctrl.minDistance = Math.max(0.12, maxDim * 0.32);
+      ctrl.maxDistance = Math.max(ctrl.minDistance * 1.25, maxDim * 4.2);
+      ctrl.target.copy(v.controls.target);
+      ctrl.update();
+    };
+    applyZoomLimits(v.perspectiveControls);
+    applyZoomLimits(v.orthographicControls);
+
+    navigationBoundsHandler = () => {
+      if (!v.controls || !v._navBounds) return;
+      v.controls.target.clamp(v._navBounds.minT, v._navBounds.maxT);
+    };
+    v.controls.addEventListener('change', navigationBoundsHandler);
+    navigationBoundsHandler();
+    configureVerticalOrbit(v);
+  }
+
+  function scheduleNavigationBoundsRefresh(vInst) {
+    if (navigationBoundsProgressTimer) {
+      clearTimeout(navigationBoundsProgressTimer);
+      navigationBoundsProgressTimer = null;
+    }
+    navigationBoundsProgressTimer = setTimeout(() => {
+      navigationBoundsProgressTimer = null;
+      if (viewer === vInst && vInst?.splatMesh) {
+        installNavigationBounds(vInst, { refreshOnly: true });
+      }
+    }, 1800);
+  }
+
   function disposeViewerInstance() {
+    if (navigationBoundsProgressTimer) {
+      clearTimeout(navigationBoundsProgressTimer);
+      navigationBoundsProgressTimer = null;
+    }
     if (viewer) {
+      detachNavigationBoundsListener(viewer);
+      delete viewer._navPivotSnapped;
+      delete viewer._navBounds;
       viewer.dispose();
       viewer = null;
     }
+    navigationBoundsHandler = null;
     viewerStarted = false;
     threeScene = null;
     gridHelper = null;
@@ -703,9 +896,15 @@ export function init() {
         v2.start();
         viewerStarted = true;
       }
-      configureVerticalOrbit(v2);
       assignSceneIndices();
       applyAllLayerTransforms();
+      if (isBundledPunkRoomOnly()) {
+        installDefaultSampleOrbitControls(v2);
+        scheduleDefaultSampleOrbitRefresh(v2);
+      } else {
+        installNavigationBounds(v2);
+        scheduleNavigationBoundsRefresh(v2);
+      }
       syncGridDisplay();
       setStatus(`${visible.length} layer${visible.length > 1 ? 's' : ''} loaded`);
     } catch (err) {
@@ -838,6 +1037,9 @@ export function init() {
     layer.transform = readTransformInputs();
     applyLayerTransform(layer);
     fillTransformInputs(layer.transform);
+    if (isBundledPunkRoomOnly() && viewer?.splatMesh) {
+      applyDefaultSampleZoomLimitsFromMesh(viewer);
+    }
     schedulePersistScene();
   }
 
@@ -1002,7 +1204,7 @@ export function init() {
     } catch (err) {
       console.error(err);
       setStatus(
-        'Could not load sample scene. Check Drive sharing or use Import file.',
+        'Could not load sample scene. Deploy the .ply with Git LFS on Pages, add assets/spatial/*.ply, set meta spatial-sample-url, or use Import file.',
         'error'
       );
     }
@@ -1109,13 +1311,36 @@ export function init() {
     if (activePreview === 'cube-rain') updateCubeRainPreviewLayout();
   });
 
+  function postOrionPartPreset(part) {
+    try {
+      previewFrame?.contentWindow?.postMessage({ type: 'alexkoo-orion-preset', part }, '*');
+    } catch {
+      /* ignore */
+    }
+  }
+
+  orionPresetsEl?.querySelectorAll('[data-orion-preset]').forEach((btn) => {
+    bind(btn, 'click', () => {
+      if (activePreview !== 'orion') return;
+      const part = btn.dataset.orionPreset;
+      if (!part) return;
+      const turningOff = btn.classList.contains('is-active');
+      orionPresetsEl.querySelectorAll('.sm-orion-preset__btn').forEach((b) => b.classList.remove('is-active'));
+      if (!turningOff) btn.classList.add('is-active');
+      postOrionPartPreset(part);
+    });
+  });
+
   bind(loadSampleBtn, 'click', async () => {
     exitPreviewMode();
     setStatus('Downloading sample scene…', 'loading');
     try {
       const bundled = await fetchBundledDefaultScene();
       if (!bundled) {
-        setStatus('Sample scene download failed — check Drive link sharing', 'error');
+        setStatus(
+          'Sample scene not found on this host. Use Import file, deploy LFS asset, or set meta spatial-sample-url (see docs).',
+          'error'
+        );
         return;
       }
       const ok = await importSceneRecord(

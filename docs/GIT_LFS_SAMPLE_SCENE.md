@@ -1,12 +1,12 @@
-# Git LFS for the large sample scene (`sample_exported.ply`)
+# Git LFS for the large sample scene (`punk_room.ply`)
 
 GitHub rejects blobs **larger than ~100 MB** in normal Git. Use **Git Large File Storage (LFS)** so the portfolio can still ship the default Gaussian splat while keeping the repo usable.
 
 The INTERACTIVE 3D page loads the sample from this path first (same origin, no CORS issues):
 
-`3D_WEB_VIEW/assets/models/sample_exported.ply`
+`3D_WEB_VIEW/assets/models/punk_room.ply`
 
-If that file is missing, invalid, or only an LFS pointer is served, the app falls back to **Google Drive**, then smaller files under `assets/spatial/`.
+If that file is missing, invalid, or only an LFS pointer is served, the app tries optional **`<meta name="spatial-sample-url">`** URLs (CORS-safe hosts), then smaller files under `assets/spatial/`. **Google Drive is not used in the browser** — Drive does not send `Access-Control-Allow-Origin`, so `fetch` from your Pages domain always fails.
 
 ---
 
@@ -18,10 +18,10 @@ If that file is missing, invalid, or only an LFS pointer is served, the app fall
    git lfs install
    ```
 
-2. This repo already includes `.gitattributes` so that **only** `3D_WEB_VIEW/assets/models/sample_exported.ply` is tracked by LFS. If you ever need to re-register it:
+2. This repo already includes `.gitattributes` so that **only** `3D_WEB_VIEW/assets/models/punk_room.ply` is tracked by LFS. If you ever need to re-register it:
 
    ```bash
-   git lfs track "3D_WEB_VIEW/assets/models/sample_exported.ply"
+   git lfs track "3D_WEB_VIEW/assets/models/punk_room.ply"
    ```
 
 ---
@@ -30,13 +30,13 @@ If that file is missing, invalid, or only an LFS pointer is served, the app fall
 
 1. Put your exported file at exactly:
 
-   `3D_WEB_VIEW/assets/models/sample_exported.ply`
+   `3D_WEB_VIEW/assets/models/punk_room.ply`
 
 2. Stage and commit (LFS replaces the blob with a pointer in Git; the real bytes go to LFS storage):
 
    ```bash
-   git add .gitattributes 3D_WEB_VIEW/assets/models/sample_exported.ply
-   git commit -m "Add sample splat via Git LFS"
+   git add .gitattributes 3D_WEB_VIEW/assets/models/punk_room.ply
+   git commit -m "Add punk_room.ply via Git LFS"
    ```
 
 3. Push (first large push may take a while):
@@ -69,13 +69,15 @@ From the repo root:
 npx serve .
 ```
 
-Open **INTERACTIVE 3D** (e.g. `http://localhost:3000/interactive3d.html`). The viewer fetches `3D_WEB_VIEW/assets/models/sample_exported.ply` over HTTP; with `git lfs pull`, that path is the real `.ply` file.
+Open **INTERACTIVE 3D** (e.g. `http://localhost:3000/interactive3d.html`). The viewer fetches `3D_WEB_VIEW/assets/models/punk_room.ply` over HTTP; with `git lfs pull`, that path is the real `.ply` file.
 
 ---
 
 ## GitHub Pages and CI
 
-- **Pages from a branch:** ensure the workflow (or build step) uses **checkout with LFS** so the published site contains the real file, not a pointer:
+- **Recommended:** enable **GitHub Actions** as the Pages source and use `.github/workflows/github-pages.yml` in this repo. It checks out **with `lfs: true`** and uploads the full tree so `3D_WEB_VIEW/assets/models/punk_room.ply` is the real file on the live site.
+
+- **Pages from a branch / classic upload:** ensure the workflow (or build step) uses **checkout with LFS** so the published site contains the real file, not a pointer:
 
   ```yaml
   - uses: actions/checkout@v4
@@ -83,10 +85,10 @@ Open **INTERACTIVE 3D** (e.g. `http://localhost:3000/interactive3d.html`). The v
       lfs: true
   ```
 
-- Without that, browsers may download the tiny LFS pointer text instead of the scene; the app will then try Drive / smaller fallbacks.
+- Without that, browsers may download the tiny LFS pointer text instead of the scene; fallbacks under `assets/spatial/` or `<meta name="spatial-sample-url">` apply.
 
 ---
 
 ## Quotas
 
-GitHub LFS includes limited **storage and bandwidth** on free accounts. If you hit limits, options include: smaller sample, paid LFS, or hosting the `.ply` elsewhere (your current Drive fallback).
+GitHub LFS includes limited **storage and bandwidth** on free accounts. If you hit limits, options include: a smaller sample committed under `assets/spatial/`, paid LFS, or hosting the `.ply` on a CORS-enabled URL and pointing `spatial-sample-url` at it.

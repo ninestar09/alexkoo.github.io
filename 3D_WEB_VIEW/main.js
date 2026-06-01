@@ -3011,29 +3011,23 @@ class SatelliteViewer {
                         }
                     }
 
-                    // For Solar Arrays, find the lower-left panel (lowest Y, leftmost X) to match the image
+                    // For Solar Arrays, pick the mesh whose center projects furthest left on screen (blue panels)
                     if (normalizedName === 'solar arrays' && matchingObjects.length > 0) {
                         if (matchingObjects.length === 1) {
                             selectedObject = matchingObjects[0];
                         } else {
-                            // Find the panel that's "downwards and to the left" (lowest Y, leftmost X)
-                            const positions = matchingObjects.map(obj => {
-                                const box = new THREE.Box3().setFromObject(obj);
-                                const objCenter = box.getCenter(new THREE.Vector3());
-                                obj.localToWorld(objCenter);
-                                return { obj, center: objCenter, y: objCenter.y, x: objCenter.x };
-                            });
-                            
-                            // Sort by lowest Y first, then by leftmost X
-                            positions.sort((a, b) => {
-                                const yDiff = Math.abs(a.y - b.y);
-                                if (yDiff > 0.1) {
-                                    return a.y - b.y; // Lower Y first (downwards)
+                            let best = matchingObjects[0];
+                            let bestNdcX = Infinity;
+                            for (const obj of matchingObjects) {
+                                const ob = new THREE.Box3().setFromObject(obj);
+                                const wc = ob.getCenter(new THREE.Vector3());
+                                const ndc = wc.clone().project(this.camera);
+                                if (ndc.x < bestNdcX) {
+                                    bestNdcX = ndc.x;
+                                    best = obj;
                                 }
-                                return a.x - b.x; // Lower X (more left) first
-                            });
-                            
-                            selectedObject = positions[0].obj;
+                            }
+                            selectedObject = best;
                         }
                     }
                     
@@ -3066,18 +3060,17 @@ class SatelliteViewer {
                         let intersectionPoint = center.clone();
                         
                         if (normalizedName === 'solar arrays') {
-                            // For solar arrays, get a point on the visible surface of the panel
-                            // Calculate based on target camera position
+                            // Surface point toward camera: bbox center is in world space — convert to local first
                             const objBox = new THREE.Box3().setFromObject(selectedObject);
                             const size = objBox.getSize(new THREE.Vector3());
-                            const localCenter = objBox.getCenter(new THREE.Vector3());
+                            const worldCenter = objBox.getCenter(new THREE.Vector3());
+                            const localCenter = worldCenter.clone();
+                            selectedObject.worldToLocal(localCenter);
                             
-                            // Use the target camera position (where camera will be) to determine visible face
                             const targetCameraPos = targetPosition.clone();
                             const cameraLocalPos = targetCameraPos.clone();
                             selectedObject.worldToLocal(cameraLocalPos);
                             
-                            // Calculate direction from panel center to target camera
                             const toCamera = cameraLocalPos.clone().sub(localCenter);
                             const toCameraNormalized = toCamera.normalize();
                             
@@ -3135,19 +3128,35 @@ class SatelliteViewer {
                         if (normalizedName === 'solar arrays') {
                             // Wait for camera animation to complete, then calculate accurate intersection point
                             setTimeout(() => {
-                                // Calculate accurate intersection point on the visible panel surface
+                                // Re-pick by screen position after orbit (pre-animation NDC can disagree with final framing)
+                                if (matchingObjects.length > 1) {
+                                    let best = matchingObjects[0];
+                                    let bestNdcX = Infinity;
+                                    for (const obj of matchingObjects) {
+                                        const ob = new THREE.Box3().setFromObject(obj);
+                                        const wc = ob.getCenter(new THREE.Vector3());
+                                        const ndc = wc.clone().project(this.camera);
+                                        if (ndc.x < bestNdcX) {
+                                            bestNdcX = ndc.x;
+                                            best = obj;
+                                        }
+                                    }
+                                    selectedObject = best;
+                                    selectedObject.userData.partInfo = {
+                                        name: 'Solar Arrays',
+                                        description: 'Part of the Solar Arrays component.'
+                                    };
+                                }
                                 const objBox = new THREE.Box3().setFromObject(selectedObject);
                                 const size = objBox.getSize(new THREE.Vector3());
-                                const localCenter = objBox.getCenter(new THREE.Vector3());
+                                const worldCenter = objBox.getCenter(new THREE.Vector3());
+                                const localCenter = worldCenter.clone();
+                                selectedObject.worldToLocal(localCenter);
                                 
-                                // Get the current camera position in world space
                                 const cameraWorldPos = this.camera.position.clone();
-                                
-                                // Convert camera position to object's local space
                                 const cameraLocalPos = cameraWorldPos.clone();
                                 selectedObject.worldToLocal(cameraLocalPos);
                                 
-                                // Calculate direction from panel center to camera (to find which face is visible)
                                 const toCamera = cameraLocalPos.clone().sub(localCenter);
                                 const toCameraNormalized = toCamera.normalize();
                                 
@@ -3381,6 +3390,39 @@ class SatelliteViewer {
         
         const object = this.selectedObject;
         const overlay = document.getElementById('indicator-overlay');
+        if (!overlay) return;
+
+        const partInfo = object.userData.partInfo || this.partData.get(object.uuid);
+        const isSolarArray = partInfo && partInfo.name && partInfo.name.toLowerCase().includes('solar');
+
+        const container = document.getElementById('canvas-container');
+        const containerWidth = container ? (container.clientWidth || container.offsetWidth || window.innerWidth) : window.innerWidth;
+        const containerHeight = container ? (container.clientHeight || container.offsetHeight || window.innerHeight) : window.innerHeight;
+        const containerRect = container ? container.getBoundingClientRect() : { left: 0, top: 0 };
+
+        // Solar Arrays: no connector line/marker — float callout over the craft (projected hull center)
+        if (isSolarArray) {
+            this.removeConnectionVisuals();
+            let x = containerRect.left + containerWidth * 0.5;
+            let y = containerRect.top + containerHeight * 0.42;
+            if (this.satellite) {
+                const craftBox = new THREE.Box3().setFromObject(this.satellite);
+                if (!craftBox.isEmpty()) {
+                    const wc = craftBox.getCenter(new THREE.Vector3());
+                    const v = wc.clone().project(this.camera);
+                    x = (v.x * 0.5 + 0.5) * containerWidth + containerRect.left;
+                    y = (-v.y * 0.5 + 0.5) * containerHeight + containerRect.top;
+                }
+            }
+            const reserveBottomPx = 130;
+            const maxY = containerRect.top + containerHeight - reserveBottomPx;
+            if (y > maxY) y = maxY;
+            overlay.style.left = x + 'px';
+            overlay.style.top = (y - 10) + 'px';
+            overlay.style.transform = 'translate(-50%, -100%)';
+            overlay.style.position = 'fixed';
+            return;
+        }
         
         // Transform local intersection point to current world space
         const worldIntersection = this.selectedIntersectionPoint.clone();
@@ -3390,19 +3432,7 @@ class SatelliteViewer {
         const boundingBox = new THREE.Box3().setFromObject(object);
         const size = boundingBox.getSize(new THREE.Vector3());
         
-        // For solar arrays, use a smaller offset to keep popup closer to the panel
-        const partInfo = object.userData.partInfo || this.partData.get(object.uuid);
-        const isSolarArray = partInfo && partInfo.name && partInfo.name.toLowerCase().includes('solar');
-        
-        let offsetY;
-        if (isSolarArray) {
-            // For solar arrays, calculate offset based on the panel's orientation
-            // Use the smallest dimension to ensure popup stays close to the thin panel
-            const minDim = Math.min(size.x, size.y, size.z);
-            offsetY = Math.max(minDim * 0.5, 0.2); // Smaller offset for thin panels
-        } else {
-            offsetY = Math.max(size.y * 0.5, 0.5); // At least 0.5 units up
-        }
+        const offsetY = Math.max(size.y * 0.5, 0.5); // At least 0.5 units up
         
         // Create a point above the intersection (initial estimate)
         const popupPosition = worldIntersection.clone();
@@ -3411,19 +3441,9 @@ class SatelliteViewer {
         // Convert 3D world position to screen coordinates
         const vector = popupPosition.project(this.camera);
         
-        // Get container dimensions for accurate positioning
-        const container = document.getElementById('canvas-container');
-        const containerWidth = container ? (container.clientWidth || container.offsetWidth || window.innerWidth) : window.innerWidth;
-        const containerHeight = container ? (container.clientHeight || container.offsetHeight || window.innerHeight) : window.innerHeight;
+        let x = (vector.x * 0.5 + 0.5) * containerWidth + containerRect.left;
+        let y = (-vector.y * 0.5 + 0.5) * containerHeight + containerRect.top;
         
-        // Get container position relative to viewport
-        const containerRect = container ? container.getBoundingClientRect() : { left: 0, top: 0 };
-        
-        const x = (vector.x * 0.5 + 0.5) * containerWidth + containerRect.left;
-        const y = (-vector.y * 0.5 + 0.5) * containerHeight + containerRect.top;
-        
-        // Position the overlay above the intersection point
-        // For solar arrays, ensure it's positioned correctly relative to the marker
         overlay.style.left = x + 'px';
         overlay.style.top = (y - 10) + 'px';
         overlay.style.transform = 'translate(-50%, -100%)'; // Center horizontally, position above
@@ -3431,17 +3451,8 @@ class SatelliteViewer {
         
         // Calculate the bottom center of the popup box in screen space
         const popupRect = overlay.getBoundingClientRect();
-        let popupBottomX, popupBottomY;
-        
-        if (isSolarArray) {
-            // For solar arrays with fixed position, use the center-bottom of the popup
-            popupBottomX = popupRect.left + popupRect.width / 2; // Center X
-            popupBottomY = popupRect.bottom; // Bottom Y
-        } else {
-            // For other parts, use the calculated position
-            popupBottomX = popupRect.left + popupRect.width / 2; // Center X
-            popupBottomY = popupRect.bottom; // Bottom Y
-        }
+        const popupBottomX = popupRect.left + popupRect.width / 2;
+        const popupBottomY = popupRect.bottom;
         
         // Convert screen coordinates to normalized device coordinates
         // Use container dimensions for accurate NDC calculation
@@ -3603,27 +3614,29 @@ class SatelliteViewer {
         this.scene.add(this.connectionLine);
     }
 
-    closeIndicator() {
-        this.selectedPart = null;
-        this.selectedObject = null;
-        this.selectedIntersectionPoint = null;
-        this.lastIntersectionPoint = null;
-        
-        // Remove connection line
+    /** Remove 3D line + dot between part and HTML callout (e.g. solar uses callout only). */
+    removeConnectionVisuals() {
         if (this.connectionLine) {
             this.scene.remove(this.connectionLine);
             this.connectionLine.geometry.dispose();
             this.connectionLine.material.dispose();
             this.connectionLine = null;
         }
-        
-        // Remove connection marker
         if (this.connectionMarker) {
             this.scene.remove(this.connectionMarker);
             this.connectionMarker.geometry.dispose();
             this.connectionMarker.material.dispose();
             this.connectionMarker = null;
         }
+    }
+
+    closeIndicator() {
+        this.selectedPart = null;
+        this.selectedObject = null;
+        this.selectedIntersectionPoint = null;
+        this.lastIntersectionPoint = null;
+        
+        this.removeConnectionVisuals();
         
         const overlay = document.getElementById('indicator-overlay');
         overlay.classList.add('hidden');
@@ -3733,6 +3746,24 @@ class SatelliteViewer {
 // Initialize the viewer when the page loads
 window.addEventListener('DOMContentLoaded', () => {
     const viewer = new SatelliteViewer();
+    window.__orionViewer = viewer;
+
+    /** Parent page (INTERACTIVE 3D) preset bar → iframe camera animations */
+    window.addEventListener('message', (event) => {
+        if (window.parent !== window && event.source !== window.parent) return;
+        const data = event.data;
+        if (!data || data.type !== 'alexkoo-orion-preset') return;
+        const part = data.part;
+        if (typeof part !== 'string' || !part.trim()) return;
+        const v = window.__orionViewer;
+        if (!v || !v.satellite) return;
+        if (v.currentPreset === part) {
+            v.resetPartPreset();
+        } else {
+            v.showPartPreset(part);
+        }
+    });
+
     // Update panel height after a short delay to ensure container is rendered
     setTimeout(() => {
         if (viewer && viewer.updatePanelHeight) {

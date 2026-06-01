@@ -689,11 +689,11 @@ body.page-interactive3d .header {
 /* Status bar */
 .sm-status {
   position: absolute;
-  bottom: 16px;
+  bottom: 20px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 130;
-  padding: 6px 16px;
+  padding: 8px 18px;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(0, 0, 0, 0.7);
@@ -712,6 +712,70 @@ body.page-interactive3d .header {
 .sm-status[data-type="loading"] {
   border-color: var(--sm-cyan-dim);
   color: var(--sm-cyan);
+}
+
+/* Orion Preview (parent page): camera preset pills above #sm-status */
+.sm-orion-presets {
+  position: absolute;
+  bottom: 112px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 135;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 12px 10px;
+  max-width: min(98%, 820px);
+  padding: 0 10px;
+  box-sizing: border-box;
+  pointer-events: auto;
+}
+
+.sm-orion-presets[hidden] {
+  display: none !important;
+}
+
+.sm-orion-preset__btn {
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 10px;
+  font-weight: 500;
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(10, 12, 18, 0.82);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: rgba(255, 255, 255, 0.82);
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s, color 0.2s;
+  flex: 0 1 auto;
+  white-space: nowrap;
+}
+
+.sm-orion-preset__btn:hover {
+  border-color: var(--sm-cyan-dim);
+  color: #fff;
+}
+
+.sm-orion-preset__btn.is-active {
+  border-color: var(--sm-cyan);
+  background: rgba(62, 232, 255, 0.12);
+  color: var(--sm-cyan);
+}
+
+@media (max-width: 520px) {
+  .sm-orion-presets {
+    bottom: 120px;
+    gap: 10px 8px;
+    padding: 0 8px;
+  }
+
+  .sm-orion-preset__btn {
+    font-size: 9px;
+    padding: 6px 12px;
+  }
 }
 
 .sm-hidden-input {
