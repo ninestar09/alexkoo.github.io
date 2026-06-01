@@ -334,6 +334,11 @@ h6 {
   z-index: 99999;
 }
 
+/* After dismiss animation starts, clicks must reach the page (preloader can linger briefly before removal). */
+#preloader.loaded {
+  pointer-events: none;
+}
+
 #preloader:before,
 #preloader:after {
   content: "";

@@ -8,18 +8,34 @@ document.addEventListener('DOMContentLoaded', () => {
   "use strict";
 
   /**
-   * Preloader
+   * Preloader — must never block clicks indefinitely (z-index 99999).
+   * Rare edge: `load` already fired before this listener runs, or a hung asset delays `load` on slow/CDN paths.
    */
   const preloader = document.querySelector('#preloader');
   if (preloader) {
-    window.addEventListener('load', () => {
+    let preloaderDismissed = false;
+    const dismissPreloader = () => {
+      if (preloaderDismissed || !preloader.parentNode) return;
+      preloaderDismissed = true;
       setTimeout(() => {
         preloader.classList.add('loaded');
       }, 100);
       setTimeout(() => {
         preloader.remove();
       }, 900);
-    });
+    };
+    window.addEventListener('load', dismissPreloader);
+    if (document.readyState === 'complete') {
+      dismissPreloader();
+    } else {
+      requestAnimationFrame(() => {
+        if (document.readyState === 'complete') dismissPreloader();
+      });
+    }
+    /* Last resort: never leave an invisible blocker on INTERACTIVE 3D / slow networks */
+    window.setTimeout(() => {
+      if (preloader.parentNode && !preloader.classList.contains('loaded')) dismissPreloader();
+    }, 8000);
   }
 
   /**
@@ -163,7 +179,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   window.addEventListener('load', () => {
     if (!window.location.hash) return;
-    const delay = preloader ? 1100 : 120;
+    const delay = preloader?.isConnected ? 1100 : 120;
     scrollToLocationHash({ smooth: true, delay, duration: 1600 });
   });
 
