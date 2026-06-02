@@ -640,7 +640,7 @@ export function init() {
 
   function createThreeScene() {
     threeScene = new THREE.Scene();
-    const gridOn = isGridEnabled();
+    const gridOn = isGridVisibleForCurrentScene();
     gridHelper = new THREE.GridHelper(40, 40, 0x8a9bab, 0x2e3338);
     gridHelper.visible = gridOn;
     axesHelper = new THREE.AxesHelper(8);
@@ -650,7 +650,7 @@ export function init() {
   }
 
   function syncGridDisplay() {
-    const on = isGridEnabled();
+    const on = isGridVisibleForCurrentScene();
     if (gridHelper) gridHelper.visible = on;
     if (axesHelper) axesHelper.visible = on;
     if (viewportRef) {
@@ -683,6 +683,12 @@ export function init() {
   function isBundledPunkRoomOnly() {
     const vis = layers.filter((l) => l.visible);
     return vis.length === 1 && vis[0].name === DEFAULT_SCENE_FILE;
+  }
+
+  /** Hidden checkbox + CSS floor grid; off for bundled sample only. */
+  function isGridVisibleForCurrentScene() {
+    if (isBundledPunkRoomOnly()) return false;
+    return isGridEnabled();
   }
 
   /**
