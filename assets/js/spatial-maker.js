@@ -57,14 +57,25 @@ const IDB_STORE = 'scene';
 const IDB_KEY = 'default';
 const SUPPORTED_EXT = new Set(['ply', 'splat', 'ksplat']);
 const UNSUPPORTED_EXT_MSG = '.sog and .sgp are not supported yet. Use .ply, .splat, or .ksplat.';
+/** Matches `@mkkellogg/gaussian-splats-3d` `LoaderStatus` (library does not export on our import path). */
+const SPLAT_LOADER_DOWNLOADING = 0;
+const SPLAT_LOADER_PROCESSING = 1;
 const WORLD_UP = new THREE.Vector3(0, 1, 0);
-/** Default orbit eye position (world). Paired with {@link DEFAULT_LOOK_AT} and sample transform. */
-const DEFAULT_CAMERA_POSITION = new THREE.Vector3(0, 2, 6);
-/** Default orbit target (world). */
-const DEFAULT_LOOK_AT = new THREE.Vector3(0, 0, 0);
-/** View axis from default look-at toward default camera (used for bundled `punk_room` framing). */
-const SAMPLE_ORBIT_OFFSET = new THREE.Vector3().subVectors(DEFAULT_CAMERA_POSITION, DEFAULT_LOOK_AT);
-const SAMPLE_ORBIT_RADIUS = SAMPLE_ORBIT_OFFSET.length();
+/** Default camera eye (world): viewer init and {@link resetCameraView}. */
+const DEFAULT_CAMERA_POSITION = new THREE.Vector3(0, 0, 0);
+/**
+ * Default orbit look-at (world). Slightly in front of an eye at the origin so OrbitControls are well-defined.
+ * (Bundled sample uses {@link applyDefaultSampleOrbitFrame} instead.)
+ */
+const DEFAULT_LOOK_AT = new THREE.Vector3(0, 0, -1);
+/** Bundled sample: if mesh center is too close to the eye, aim using this direction (normalized). */
+const SAMPLE_FALLBACK_LOOK_DIR = new THREE.Vector3(0, 2, 6).normalize();
+
+/**
+ * Bundled sample only: OrbitControls target sits on the view ray this far in front of the camera
+ * (pivot at the viewer), not on splats or mesh bounds.
+ */
+const SAMPLE_ORBIT_PIVOT_DISTANCE = 0.15;
 
 let viewer = null;
 let viewerStarted = false;
@@ -237,7 +248,7 @@ function defaultTransform() {
   return { position: [0, 0, 0], rotationDeg: [0, 0, 0], scale: [1, 1, 1] };
 }
 
-const SAMPLE_DEFAULT_POSITION = [0.05, 1.45, 5];
+const SAMPLE_DEFAULT_POSITION = [0.05, 1.45, 0];
 const SAMPLE_DEFAULT_ROTATION_DEG = [-20, 180, 180];
 const SAMPLE_DEFAULT_SCALE = [1, 1, 1];
 
@@ -306,6 +317,9 @@ export function init() {
   const layerList = document.getElementById('sm-layer-list');
   const importFileBtn = document.getElementById('sm-import-file');
   const statusEl = document.getElementById('sm-status');
+  const loadCard = document.getElementById('sm-load-card');
+  const loadCardText = document.getElementById('sm-load-card-text');
+  const loadCardSub = document.getElementById('sm-load-card-sub');
   const gridToggle = document.getElementById('sm-grid');
   viewportRef = viewport;
   gridToggleRef = gridToggle;
@@ -348,7 +362,33 @@ export function init() {
     sun: document.getElementById('sm-scale-uniform-n'),
   };
 
+  const SAMPLE_DOWNLOAD_DONE_MS = 450;
+
+  function hideLoadCardUi() {
+    loadCard?.setAttribute('hidden', '');
+    loadCard?.removeAttribute('data-phase');
+    if (loadCardSub) {
+      loadCardSub.textContent = '';
+      loadCardSub.setAttribute('hidden', '');
+    }
+    if (statusEl) statusEl.hidden = false;
+  }
+
   function setStatus(msg, type = '') {
+    const useLoadCard =
+      (type === 'loading' || type === 'load-done') && loadCard && loadCardText;
+    if (useLoadCard) {
+      loadCardText.textContent = msg;
+      loadCard.dataset.phase = type === 'load-done' ? 'done' : 'loading';
+      loadCard.removeAttribute('hidden');
+      if (loadCardSub) {
+        loadCardSub.textContent = '';
+        loadCardSub.setAttribute('hidden', '');
+      }
+      if (statusEl) statusEl.hidden = true;
+      return;
+    }
+    hideLoadCardUi();
     if (!statusEl) return;
     statusEl.textContent = msg;
     statusEl.dataset.type = type;
@@ -646,8 +686,9 @@ export function init() {
   }
 
   /**
-   * Bundled punk_room: initial pose — camera at world origin, orbit target at splat center (fallback if too near origin).
-   * Wide min/max zoom so users can move through the scene; call {@link applyDefaultSampleZoomLimitsFromMesh} later without resetting pose.
+   * Bundled punk_room: camera at world origin, initial look toward splat (mesh center only orients the view).
+   * Orbit pivot is on the view axis in front of the eye ({@link SAMPLE_ORBIT_PIVOT_DISTANCE}), not on splats.
+   * Call {@link applyDefaultSampleZoomLimitsFromMesh} for dolly limits without resetting pose.
    */
   function applyDefaultSampleOrbitFrame(v) {
     if (!v?.splatMesh || !v.controls || !v.camera) return;
@@ -656,39 +697,43 @@ export function init() {
     const meshCenter = box.getCenter(new THREE.Vector3());
     const size = box.getSize(new THREE.Vector3());
     const maxDim = Math.max(size.x, size.y, size.z, 0.35);
-    const worldOrigin = DEFAULT_LOOK_AT.clone();
+    const worldOrigin = DEFAULT_CAMERA_POSITION.clone();
 
-    let target = meshCenter.clone();
-    const r0 = worldOrigin.distanceTo(target);
+    let lookToward = meshCenter.clone();
+    const r0 = worldOrigin.distanceTo(lookToward);
     if (r0 < 0.12) {
-      const lookDir = SAMPLE_ORBIT_OFFSET.clone().normalize();
-      target = worldOrigin.clone().add(lookDir.multiplyScalar(Math.max(1.2, maxDim * 0.35)));
+      const lookDir = SAMPLE_FALLBACK_LOOK_DIR.clone();
+      lookToward = worldOrigin.clone().add(lookDir.multiplyScalar(Math.max(1.2, maxDim * 0.35)));
     }
 
     v.camera.up.copy(WORLD_UP);
     v.camera.position.copy(worldOrigin);
-    v.camera.lookAt(target);
+    v.camera.lookAt(lookToward);
+
+    const forward = new THREE.Vector3();
+    v.camera.getWorldDirection(forward);
+    const orbitTarget = v.camera.position.clone().addScaledVector(forward, SAMPLE_ORBIT_PIVOT_DISTANCE);
 
     applyDefaultSampleZoomLimitsFromMesh(v);
 
     const syncActive = (ctrl) => {
       if (!ctrl || ctrl.object !== v.camera) return;
-      ctrl.target.copy(target);
+      ctrl.target.copy(orbitTarget);
       ctrl.update();
     };
     syncActive(v.perspectiveControls);
     syncActive(v.orthographicControls);
   }
 
-  /** Updates dolly limits from current splat bounds without moving camera or target. */
+  /** Dolly limits for eye-local orbit pivot; mesh size only caps how far you can zoom out along the view. */
   function applyDefaultSampleZoomLimitsFromMesh(v) {
     if (!v?.splatMesh || !v.controls || !v.camera) return;
     const box = new THREE.Box3().setFromObject(v.splatMesh);
     if (box.isEmpty()) return;
     const size = box.getSize(new THREE.Vector3());
     const maxDim = Math.max(size.x, size.y, size.z, 0.35);
-    const minD = Math.max(0.04, maxDim * 0.04);
-    const maxD = Math.max(minD * 3, maxDim * 25);
+    const minD = 0.02;
+    const maxD = Math.max(minD * 4, maxDim * 30);
     const sync = (ctrl) => {
       if (!ctrl || ctrl.object !== v.camera) return;
       ctrl.minDistance = minD;
@@ -891,7 +936,19 @@ export function init() {
           scale: layer.transform.scale,
         };
       });
-      await v2.addSplatScenes(scenes);
+      const onSplatLoadProgress = (totalPercent, percentLabel, loaderStatus) => {
+        if (!loadCardSub) return;
+        if (loaderStatus === SPLAT_LOADER_DOWNLOADING) {
+          loadCardSub.removeAttribute('hidden');
+          loadCardSub.textContent =
+            totalPercent >= 100 ? 'Download complete!' : `Downloading: ${percentLabel}`;
+        } else if (loaderStatus === SPLAT_LOADER_PROCESSING) {
+          loadCardSub.removeAttribute('hidden');
+          loadCardSub.textContent =
+            Number(totalPercent) >= 100 ? 'Ready to view' : `Processing: ${percentLabel}`;
+        }
+      };
+      await v2.addSplatScenes(scenes, false, onSplatLoadProgress);
       if (!viewerStarted) {
         v2.start();
         viewerStarted = true;
@@ -1191,6 +1248,9 @@ export function init() {
       setStatus('Downloading sample scene…', 'loading');
       const bundled = await fetchBundledDefaultScene();
       if (bundled) {
+        setStatus('Download complete!', 'load-done');
+        await new Promise((r) => setTimeout(r, SAMPLE_DOWNLOAD_DONE_MS));
+        if (disposed) return;
         const ok = await importSceneRecord(
           { fileName: bundled.fileName, data: bundled.data, transform: defaultSampleTransform() },
           `Loaded ${bundled.fileName}`
@@ -1343,6 +1403,9 @@ export function init() {
         );
         return;
       }
+      setStatus('Download complete!', 'load-done');
+      await new Promise((r) => setTimeout(r, SAMPLE_DOWNLOAD_DONE_MS));
+      if (disposed) return;
       const ok = await importSceneRecord(
         { fileName: bundled.fileName, data: bundled.data, transform: defaultSampleTransform() },
         `Loaded ${bundled.fileName}`
@@ -1362,6 +1425,7 @@ export function init() {
 
   return () => {
     disposed = true;
+    hideLoadCardUi();
     if (persistSceneTimer) {
       clearTimeout(persistSceneTimer);
       persistSceneTimer = null;

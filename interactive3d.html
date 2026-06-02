@@ -167,7 +167,7 @@
               <p class="sm-label">Position</p>
               <div class="sm-field-row"><label>x</label><input type="range" min="-5" max="5" step="0.05" value="0.05" id="sm-pos-x"><input type="number" step="0.05" value="0.05" id="sm-pos-x-n"></div>
               <div class="sm-field-row"><label>y</label><input type="range" min="-5" max="5" step="0.05" value="1.45" id="sm-pos-y"><input type="number" step="0.05" value="1.45" id="sm-pos-y-n"></div>
-              <div class="sm-field-row"><label>z</label><input type="range" min="-5" max="8" step="0.05" value="5" id="sm-pos-z"><input type="number" step="0.05" value="5" id="sm-pos-z-n"></div>
+              <div class="sm-field-row"><label>z</label><input type="range" min="-5" max="8" step="0.05" value="0" id="sm-pos-z"><input type="number" step="0.05" value="0" id="sm-pos-z-n"></div>
               <p class="sm-label">Rotation (°)</p>
               <div class="sm-field-row"><label>x</label><input type="range" min="-180" max="180" step="1" value="-20" id="sm-rot-x"><input type="number" min="-180" max="180" step="1" value="-20" id="sm-rot-x-n"></div>
               <div class="sm-field-row"><label>y</label><input type="range" min="-180" max="180" step="1" value="180" id="sm-rot-y"><input type="number" min="-180" max="180" step="1" value="180" id="sm-rot-y-n"></div>
@@ -200,6 +200,14 @@
           <button type="button" class="sm-orion-preset__btn" data-orion-preset="European Service">European Service</button>
           <button type="button" class="sm-orion-preset__btn" data-orion-preset="Solar Arrays">Solar Arrays</button>
           <button type="button" class="sm-orion-preset__btn" data-orion-preset="Exhaust">Exhaust</button>
+        </div>
+
+        <div id="sm-load-card" class="sm-load-card" hidden aria-live="polite">
+          <div class="sm-load-card__panel">
+            <div class="sm-load-card__ring" aria-hidden="true"></div>
+            <p class="sm-load-card__text" id="sm-load-card-text"></p>
+            <p class="sm-load-card__sub" id="sm-load-card-sub" hidden></p>
+          </div>
         </div>
 
         <p class="sm-status" id="sm-status">Ready</p>
