@@ -130,9 +130,10 @@
         <span class="gallery-ambient__lines gallery-ambient__lines--step"></span>
         <span class="gallery-ambient__lines gallery-ambient__lines--offset"></span>
       </div>
-      <div class="container-fluid">
+      <div class="gallery-stage">
+      <div class="container-fluid gallery-stage__grid" id="gallery-stage-grid">
 
-        <div class="row gy-4 justify-content-center">
+        <div class="row gy-4 justify-content-center gallery-stage__row">
           <div class="col-xl-3 col-lg-4 col-md-6">
             <a href="gallery13.html" class="gallery-item h-100 d-block">
               <img src="assets/img/gallery/gallery-n00.jpg" class="img-fluid" alt="Experimental Projects">
@@ -294,13 +295,20 @@
             </a>
           </div><!-- End Gallery Item -->
 
-
-
-
-
         </div>
 
+      </div><!-- .gallery-stage__grid -->
+
+      <div id="gallery-detail-nest" class="gallery-detail-nest" hidden aria-hidden="true">
+        <div class="gallery-detail-nest__toolbar">
+          <button type="button" class="gallery-detail-nest__close" id="gallery-detail-close" aria-label="Back to project gallery">
+            <i class="bi bi-arrow-left" aria-hidden="true"></i>
+            <span>Project Gallery</span>
+          </button>
+        </div>
+        <div class="gallery-detail-nest__body" id="gallery-detail-body"></div>
       </div>
+      </div><!-- .gallery-stage -->
     </section><!-- End Gallery Section -->
 
   </main><!-- End #main -->

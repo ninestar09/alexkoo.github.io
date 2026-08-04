@@ -628,6 +628,215 @@ document.addEventListener('DOMContentLoaded', () => {
     gallerySection._ambientIo = io;
   }
 
+  /**
+   * Index gallery cards: cursor tracking for fluid parallax + light-follow hover.
+   * Writes --px/--py (cursor position in %) and --mx/--my (-1..1) CSS vars per card.
+   */
+  function initGalleryCardMotion() {
+    const gallerySection = document.querySelector('#gallery');
+    if (!gallerySection || gallerySection._cardMotionBound) return;
+    gallerySection._cardMotionBound = true;
+
+    let raf = 0;
+    let pendingCard = null;
+    let pendingX = 0;
+    let pendingY = 0;
+
+    const apply = () => {
+      raf = 0;
+      if (!pendingCard) return;
+      const rect = pendingCard.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      const px = Math.min(100, Math.max(0, ((pendingX - rect.left) / rect.width) * 100));
+      const py = Math.min(100, Math.max(0, ((pendingY - rect.top) / rect.height) * 100));
+      pendingCard.style.setProperty('--px', px.toFixed(2) + '%');
+      pendingCard.style.setProperty('--py', py.toFixed(2) + '%');
+      pendingCard.style.setProperty('--mx', (px / 50 - 1).toFixed(3));
+      pendingCard.style.setProperty('--my', (py / 50 - 1).toFixed(3));
+    };
+
+    gallerySection.addEventListener('pointermove', (e) => {
+      const card = e.target.closest && e.target.closest('a.gallery-item');
+      if (!card) return;
+      pendingCard = card;
+      pendingX = e.clientX;
+      pendingY = e.clientY;
+      if (!raf) raf = requestAnimationFrame(apply);
+    });
+
+    gallerySection.addEventListener('pointerout', (e) => {
+      const card = e.target.closest && e.target.closest('a.gallery-item');
+      if (!card || card.contains(e.relatedTarget)) return;
+      if (pendingCard === card) pendingCard = null;
+      card.style.setProperty('--px', '50%');
+      card.style.setProperty('--py', '50%');
+      card.style.setProperty('--mx', '0');
+      card.style.setProperty('--my', '0');
+    });
+  }
+
+  /**
+   * Nested gallery project view: open card content inside #gallery without a full page reload.
+   */
+  let galleryDetailSwiper = null;
+  let galleryDetailOpen = false;
+  let galleryDetailLoading = false;
+
+  function isGalleryDetailPath(path) {
+    const name = (path || '').replace(/^.*\//, '');
+    return /^gallery\d+[a-z]?\.html$/i.test(name);
+  }
+
+  function disposeGalleryDetailSwiper() {
+    if (!galleryDetailSwiper) return;
+    try {
+      galleryDetailSwiper.destroy(true, true);
+    } catch {
+      /* ignore */
+    }
+    galleryDetailSwiper = null;
+  }
+
+  function disposeGalleryDetailNest() {
+    disposeGalleryDetailSwiper();
+    const gallery = document.getElementById('gallery');
+    const nest = document.getElementById('gallery-detail-nest');
+    const body = document.getElementById('gallery-detail-body');
+    gallery?.classList.remove('is-detail-open');
+    if (nest) {
+      nest.setAttribute('hidden', '');
+      nest.setAttribute('aria-hidden', 'true');
+      nest.classList.remove('is-loading');
+    }
+    if (body) body.innerHTML = '';
+    galleryDetailOpen = false;
+    galleryDetailLoading = false;
+  }
+
+  function initGalleryDetailSwiper(root) {
+    disposeGalleryDetailSwiper();
+    const el = root?.querySelector('.slides-1');
+    if (!el || typeof Swiper === 'undefined') return;
+    galleryDetailSwiper = new Swiper(el, {
+      speed: 600,
+      loop: true,
+      autoplay: {
+        delay: 30000,
+        disableOnInteraction: false
+      },
+      slidesPerView: 'auto',
+      pagination: {
+        el: el.querySelector('.swiper-pagination') || root.querySelector('.swiper-pagination'),
+        type: 'bullets',
+        clickable: true
+      },
+      navigation: {
+        nextEl: root.querySelector('.swiper-button-next'),
+        prevEl: root.querySelector('.swiper-button-prev'),
+      }
+    });
+  }
+
+  function closeGalleryDetailNest(opts = {}) {
+    const pushHistory = opts.pushHistory !== false;
+    const gallery = document.getElementById('gallery');
+    if (!gallery || !galleryDetailOpen) {
+      disposeGalleryDetailNest();
+      return;
+    }
+    disposeGalleryDetailNest();
+    if (pushHistory) {
+      const indexUrl = new URL('index.html', window.location.href);
+      history.pushState({ path: indexUrl.pathname + '#gallery', galleryNest: false }, '', indexUrl.pathname + '#gallery');
+    }
+    const titleEl = document.querySelector('head title');
+    if (titleEl && !titleEl.dataset.defaultTitle) {
+      /* keep current if already on index */
+    }
+    requestAnimationFrame(() => {
+      gallery.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
+
+  async function openGalleryDetailNest(href, opts = {}) {
+    const pushHistory = opts.pushHistory !== false;
+    const gallery = document.getElementById('gallery');
+    const nest = document.getElementById('gallery-detail-nest');
+    const body = document.getElementById('gallery-detail-body');
+    if (!appContent || !gallery || !nest || !body) {
+      window.location.href = href;
+      return;
+    }
+    if (galleryDetailLoading) return;
+    galleryDetailLoading = true;
+
+    gallery.classList.add('is-detail-open');
+    nest.removeAttribute('hidden');
+    nest.setAttribute('aria-hidden', 'false');
+    nest.classList.add('is-loading');
+    disposeGalleryDetailSwiper();
+    body.innerHTML = '<p class="gallery-detail-nest__loading">Loading project…</p>';
+    gallery.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    try {
+      const res = await fetch(href, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+      if (!res.ok) throw new Error(String(res.status));
+      const html = await res.text();
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const main = doc.getElementById('main');
+      if (!main) throw new Error('missing main');
+
+      const pageHeader = main.querySelector('.page-header');
+      const gallerySingle = main.querySelector('#gallery-single');
+      body.innerHTML = '';
+      if (pageHeader) body.appendChild(document.importNode(pageHeader, true));
+      if (gallerySingle) body.appendChild(document.importNode(gallerySingle, true));
+      if (!body.children.length) throw new Error('empty detail');
+
+      nest.classList.remove('is-loading');
+      initGalleryDetailSwiper(body);
+      if (doc.title) document.title = doc.title;
+      galleryDetailOpen = true;
+
+      if (pushHistory) {
+        const u = new URL(href, window.location.href);
+        history.pushState({ path: u.pathname, galleryNest: true }, '', u.pathname);
+      }
+    } catch {
+      disposeGalleryDetailNest();
+      window.location.href = href;
+      return;
+    } finally {
+      galleryDetailLoading = false;
+    }
+  }
+
+  document.addEventListener('click', (e) => {
+    if (!document.getElementById('app-content')) return;
+
+    const card = e.target.closest('#gallery a.gallery-item');
+    if (card) {
+      const href = card.getAttribute('href');
+      if (!href || href.startsWith('#')) return;
+      if (!isGalleryDetailPath(getPath(href))) return;
+      e.preventDefault();
+      openGalleryDetailNest(new URL(href, window.location.href).href);
+      return;
+    }
+
+    if (e.target.closest('#gallery-detail-close')) {
+      e.preventDefault();
+      closeGalleryDetailNest({ pushHistory: true });
+      return;
+    }
+
+    const nestBack = e.target.closest('#gallery-detail-nest .gallery-back-link');
+    if (nestBack) {
+      e.preventDefault();
+      closeGalleryDetailNest({ pushHistory: true });
+    }
+  });
+
   function getPath(href) {
     if (!href) return '';
     const path = href.split('?')[0].split('#')[0];
@@ -701,6 +910,7 @@ document.addEventListener('DOMContentLoaded', () => {
           disposeHeroScrollFrames();
           disposeHeroIntroCubes();
           disposeSpatialMaker();
+          disposeGalleryDetailNest();
           syncPageScopedStyles(doc);
           syncSpatialMakerHead(doc);
           appContent.innerHTML = newContent.innerHTML;
@@ -717,6 +927,7 @@ document.addEventListener('DOMContentLoaded', () => {
           initHeroScrollFrames();
           initHeroIntroCubes();
           initGalleryAmbientObserver();
+          initGalleryCardMotion();
           initAboutFadeUpObserver();
           initSpatialMaker();
           pageTxPlayEnter();
@@ -749,6 +960,32 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     window.addEventListener('popstate', (e) => {
+      const pathNow = getPath(window.location.pathname);
+      const nameNow = pathNow.replace(/^.*\//, '') || 'index.html';
+
+      if (e.state && e.state.galleryNest && isGalleryDetailPath(pathNow)) {
+        if (document.getElementById('gallery-detail-nest')) {
+          openGalleryDetailNest(window.location.href, { pushHistory: false });
+          return;
+        }
+        loadPage(new URL('index.html', window.location.href).href, false);
+        window.setTimeout(() => {
+          if (document.getElementById('gallery-detail-nest')) {
+            openGalleryDetailNest(window.location.href, { pushHistory: false });
+          }
+        }, 900);
+        return;
+      }
+
+      if (galleryDetailOpen && (nameNow === 'index.html' || !isGalleryDetailPath(pathNow))) {
+        closeGalleryDetailNest({ pushHistory: false });
+        if (window.location.hash === '#gallery') {
+          const g = document.getElementById('gallery');
+          if (g) requestAnimationFrame(() => g.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+        }
+        if (nameNow === 'index.html' || window.location.hash) return;
+      }
+
       if (e.state && e.state.path) loadPage(e.state.path, false);
       else loadPage(window.location.href, false);
     });
@@ -861,6 +1098,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
   initGalleryAmbientObserver();
+  initGalleryCardMotion();
   initAboutFadeUpObserver();
   initSpatialMaker();
 

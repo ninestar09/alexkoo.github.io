@@ -1281,12 +1281,215 @@ body.page-about #aboutPageInner > .about-orbit-hero {
 .gallery .gallery-item {
   position: relative;
   overflow: hidden;
-  border-radius: 10px;
-  transition: box-shadow 0.4s ease;
+  border-radius: 12px;
+  transition:
+    transform 0.7s cubic-bezier(0.19, 1, 0.22, 1),
+    box-shadow 0.7s cubic-bezier(0.19, 1, 0.22, 1);
+  will-change: transform;
 }
 
 .gallery .gallery-item:hover {
-  box-shadow: 0 0 32px rgba(100, 150, 255, 0.12), 0 0 64px rgba(80, 50, 140, 0.06);
+  box-shadow: 0 20px 42px rgba(0, 0, 0, 0.35);
+}
+
+/* Fluid hover: gentle lift, cursor parallax, flowing gradient line around the card */
+@property --card-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+#gallery .gallery-stage__grid {
+  padding-block: 10px;
+}
+
+#gallery a.gallery-item {
+  --mx: 0;
+  --my: 0;
+  --px: 50%;
+  --py: 50%;
+}
+
+#gallery .gallery-stage__row .gallery-item:hover,
+#gallery .gallery-stage__row .gallery-item:focus-visible {
+  transform: translateY(-6px);
+}
+
+/* Flowing gradient line traveling around the card edge */
+#gallery a.gallery-item::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: conic-gradient(
+    from var(--card-angle),
+    transparent 0turn,
+    rgba(91, 217, 169, 0.9) 0.1turn,
+    rgba(100, 165, 255, 0.95) 0.22turn,
+    rgba(165, 110, 255, 0.85) 0.32turn,
+    transparent 0.46turn,
+    transparent 1turn
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  animation: gallery-border-flow 3.6s linear infinite;
+  animation-play-state: paused;
+  pointer-events: none;
+}
+
+#gallery a.gallery-item:hover::before,
+#gallery a.gallery-item:focus-visible::before {
+  opacity: 1;
+  animation-play-state: running;
+}
+
+@keyframes gallery-border-flow {
+  to {
+    --card-angle: 1turn;
+  }
+}
+
+/* Soft light that follows the cursor across the card */
+#gallery a.gallery-item::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: radial-gradient(
+    340px circle at var(--px) var(--py),
+    rgba(120, 190, 255, 0.14) 0%,
+    rgba(91, 217, 169, 0.07) 34%,
+    transparent 62%
+  );
+  opacity: 0;
+  transition: opacity 0.45s ease;
+  pointer-events: none;
+}
+
+#gallery a.gallery-item:hover::after {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #gallery .gallery-stage__row .gallery-item:hover,
+  #gallery .gallery-stage__row .gallery-item:focus-visible {
+    transform: none;
+  }
+
+  #gallery a.gallery-item::before {
+    animation: none;
+  }
+
+  #gallery a.gallery-item::after {
+    display: none;
+  }
+}
+
+/* Nested project detail (stays on index; no full page reload) */
+.gallery-stage {
+  position: relative;
+}
+
+.gallery.is-detail-open .gallery-stage__grid {
+  display: none;
+}
+
+.gallery.is-detail-open .gallery-ambient {
+  opacity: 0.35;
+}
+
+.gallery-detail-nest {
+  display: none;
+  width: 100%;
+  animation: gallery-nest-in 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.gallery.is-detail-open .gallery-detail-nest {
+  display: block;
+}
+
+.gallery-detail-nest[hidden] {
+  display: none !important;
+}
+
+@keyframes gallery-nest-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gallery-detail-nest {
+    animation: none;
+  }
+}
+
+.gallery-detail-nest__toolbar {
+  display: flex;
+  justify-content: flex-start;
+  padding: 0 clamp(12px, 3vw, 28px) 8px;
+}
+
+.gallery-detail-nest__close {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(10, 12, 20, 0.72);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s, color 0.2s;
+}
+
+.gallery-detail-nest__close:hover {
+  border-color: rgba(91, 217, 169, 0.55);
+  color: #fff;
+  background: rgba(16, 20, 36, 0.9);
+}
+
+.gallery-detail-nest__body {
+  min-height: 40vh;
+}
+
+.gallery-detail-nest__body .page-header {
+  padding-top: 40px;
+  min-height: auto;
+}
+
+.gallery-detail-nest__body .gallery-back-strip {
+  display: none;
+}
+
+.gallery-detail-nest.is-loading .gallery-detail-nest__body {
+  min-height: 280px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gallery-detail-nest__loading {
+  margin: 0;
+  font-size: 13px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
 }
 
 /* Same gradient + hover effect on gallery single/list pages (page-header + gallery-single) */
@@ -1350,7 +1553,7 @@ body.page-about #aboutPageInner > .about-orbit-hero {
 }
 
 .gallery .gallery-item img {
-  transition: 0.3s;
+  transition: transform 0.9s cubic-bezier(0.19, 1, 0.22, 1);
 }
 
 .gallery .gallery-links {
@@ -1391,7 +1594,7 @@ body.page-about #aboutPageInner > .about-orbit-hero {
 }
 
 .gallery .gallery-item:hover img {
-  transform: scale(1.1);
+  transform: scale(1.07);
 }
 
 /* Index (#gallery): thumbnail hover â€” number, accent line, title animate in/out */
@@ -1399,6 +1602,17 @@ body.page-about #aboutPageInner > .about-orbit-hero {
   display: block;
   position: relative;
   z-index: 0;
+}
+
+/* Image drifts fluidly toward the cursor */
+#gallery a.gallery-item:hover img {
+  transform: translate3d(calc(var(--mx) * 10px), calc(var(--my) * 8px), 0) scale(1.07);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #gallery a.gallery-item:hover img {
+    transform: none;
+  }
 }
 
 #gallery a.gallery-item .gallery-item__overlay {
@@ -1412,11 +1626,18 @@ body.page-about #aboutPageInner > .about-orbit-hero {
   padding: 1rem 1.15rem 1.35rem;
   background: linear-gradient(
     to top,
-    rgba(4, 6, 18, 0.96) 0%,
-    rgba(10, 14, 36, 0.55) 42%,
-    rgba(16, 10, 32, 0) 72%
+    rgba(3, 6, 14, 0.72) 0%,
+    rgba(6, 10, 24, 0.24) 40%,
+    rgba(16, 10, 32, 0) 64%
   );
+  opacity: 0;
+  transition: opacity 0.55s ease;
   pointer-events: none;
+}
+
+#gallery a.gallery-item:hover .gallery-item__overlay,
+#gallery a.gallery-item:focus-visible .gallery-item__overlay {
+  opacity: 1;
 }
 
 #gallery a.gallery-item .gallery-item__num {
@@ -1425,15 +1646,13 @@ body.page-about #aboutPageInner > .about-orbit-hero {
   font-weight: 700;
   line-height: 0.92;
   letter-spacing: -0.04em;
-  color: rgba(255, 255, 255, 0.8);
-  text-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.65),
-    0 4px 28px rgba(80, 140, 255, 0.35);
-  transform: translate3d(-12px, 26px, 0) skewX(-10deg) scale(0.86);
+  color: rgba(255, 255, 255, 0.85);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+  transform: translate3d(0, 16px, 0);
   opacity: 0;
   transition:
-    transform 0.5s cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 0.35s ease;
+    transform 0.65s cubic-bezier(0.19, 1, 0.22, 1),
+    opacity 0.45s ease;
   transition-delay: 0s;
 }
 
@@ -1443,15 +1662,24 @@ body.page-about #aboutPageInner > .about-orbit-hero {
   max-width: 7rem;
   height: 2px;
   margin: 0.35rem 0 0.55rem;
-  background: linear-gradient(90deg, #5bd9a9 0%, var(--color-primary) 100%);
+  background: linear-gradient(90deg, #5bd9a9, #64a5ff, #a56eff, #5bd9a9);
+  background-size: 300% 100%;
   border-radius: 2px;
   transform: scaleX(0);
   transform-origin: left center;
   opacity: 0;
   transition:
-    transform 0.48s cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 0.32s ease;
+    transform 0.6s cubic-bezier(0.19, 1, 0.22, 1),
+    opacity 0.4s ease;
   transition-delay: 0s;
+  animation: gallery-line-flow 2.8s linear infinite;
+  animation-play-state: paused;
+}
+
+@keyframes gallery-line-flow {
+  to {
+    background-position: -300% 0;
+  }
 }
 
 #gallery a.gallery-item .gallery-item__title {
@@ -1467,33 +1695,34 @@ body.page-about #aboutPageInner > .about-orbit-hero {
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   overflow: hidden;
-  transform: translate3d(0, 20px, 0);
+  transform: translate3d(0, 14px, 0);
   opacity: 0;
   transition:
-    transform 0.48s cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 0.38s ease;
+    transform 0.6s cubic-bezier(0.19, 1, 0.22, 1),
+    opacity 0.45s ease;
   transition-delay: 0s;
 }
 
 #gallery a.gallery-item:hover .gallery-item__num,
 #gallery a.gallery-item:focus-visible .gallery-item__num {
-  transform: translate3d(0, 0, 0) skewX(0deg) scale(1);
+  transform: translate3d(0, 0, 0);
   opacity: 1;
-  transition-delay: 0.04s;
+  transition-delay: 0.05s;
 }
 
 #gallery a.gallery-item:hover .gallery-item__line,
 #gallery a.gallery-item:focus-visible .gallery-item__line {
   transform: scaleX(1);
   opacity: 1;
-  transition-delay: 0.1s;
+  transition-delay: 0.12s;
+  animation-play-state: running;
 }
 
 #gallery a.gallery-item:hover .gallery-item__title,
 #gallery a.gallery-item:focus-visible .gallery-item__title {
   transform: translate3d(0, 0, 0);
   opacity: 1;
-  transition-delay: 0.16s;
+  transition-delay: 0.18s;
 }
 
 #gallery a.gallery-item:focus-visible {
@@ -1507,6 +1736,7 @@ body.page-about #aboutPageInner > .about-orbit-hero {
   #gallery a.gallery-item .gallery-item__title {
     transition-duration: 0.01ms;
     transition-delay: 0s !important;
+    animation: none;
   }
 
   #gallery a.gallery-item:hover .gallery-item__num,
