@@ -1143,133 +1143,57 @@ body.page-about #aboutPageInner > .about-orbit-hero {
   z-index: 3;
 }
 
-/* Index #gallery: light waves + stepped offset lines (ambient, scroll-triggered) */
+/* Index #gallery: smooth flowing aurora background (WebGL canvas, scroll-gated) */
 #gallery .gallery-ambient {
   position: absolute;
   inset: 0;
   z-index: 1;
   overflow: hidden;
   pointer-events: none;
-  opacity: 0.14;
-  transition: opacity 1s ease-out;
+  opacity: 0.12;
+  transition: opacity 1.2s ease-out;
 }
 
 #gallery.gallery--in-view .gallery-ambient {
   opacity: 1;
 }
 
-#gallery .gallery-ambient__wave {
+#gallery .gallery-ambient__canvas {
   position: absolute;
-  border-radius: 50%;
-  filter: blur(42px);
-  mix-blend-mode: screen;
-  animation: galleryAmbientWave 12s ease-in-out infinite alternate;
-  animation-play-state: paused;
-  will-change: transform;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  opacity: 0.85;
+  mask-image: linear-gradient(to bottom, transparent 0%, #000 14%, #000 84%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 14%, #000 84%, transparent 100%);
 }
 
-#gallery.gallery--in-view .gallery-ambient__wave {
-  animation-play-state: running;
+/* CSS fallback when WebGL is unavailable: slow drifting gradient in the same tone */
+#gallery .gallery-ambient--fallback {
+  background:
+    radial-gradient(ellipse 70% 55% at 22% 30%, rgba(46, 92, 214, 0.32) 0%, transparent 62%),
+    radial-gradient(ellipse 65% 60% at 78% 62%, rgba(84, 52, 176, 0.36) 0%, transparent 64%),
+    radial-gradient(ellipse 80% 70% at 50% 88%, rgba(38, 22, 92, 0.4) 0%, transparent 66%);
+  background-size: 170% 170%;
+  animation: galleryAuroraDrift 28s ease-in-out infinite alternate;
+  mask-image: linear-gradient(to bottom, transparent 0%, #000 14%, #000 84%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 14%, #000 84%, transparent 100%);
 }
 
-#gallery .gallery-ambient__wave--1 {
-  width: 135%;
-  height: 58%;
-  left: -38%;
-  top: 8%;
-  background: radial-gradient(ellipse 55% 65% at 48% 48%, rgba(140, 210, 255, 0.55) 0%, rgba(70, 120, 230, 0.22) 38%, transparent 72%);
-  opacity: 0.5;
-  animation-duration: 13s;
-}
-
-#gallery .gallery-ambient__wave--2 {
-  width: 125%;
-  height: 52%;
-  right: -42%;
-  bottom: -2%;
-  background: radial-gradient(ellipse 60% 58% at 55% 45%, rgba(210, 150, 255, 0.42) 0%, rgba(100, 70, 200, 0.18) 42%, transparent 74%);
-  opacity: 0.42;
-  animation-duration: 9.5s;
-  animation-delay: -2.5s;
-}
-
-@keyframes galleryAmbientWave {
-  0% {
-    transform: translate3d(-5%, 3%, 0) scale(1) rotate(-4deg);
+@keyframes galleryAuroraDrift {
+  from {
+    background-position: 0% 0%;
   }
 
-  50% {
-    transform: translate3d(10%, -8%, 0) scale(1.08) rotate(5deg);
-  }
-
-  100% {
-    transform: translate3d(16%, 4%, 0) scale(1) rotate(-3deg);
-  }
-}
-
-#gallery .gallery-ambient__lines {
-  position: absolute;
-  inset: -8%;
-  opacity: 0.26;
-  mask-image: linear-gradient(to bottom, transparent 0%, #000 14%, #000 82%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 14%, #000 82%, transparent 100%);
-  animation: galleryAmbientLinesDrift 22s linear infinite;
-  animation-play-state: paused;
-  will-change: background-position;
-}
-
-#gallery.gallery--in-view .gallery-ambient__lines {
-  animation-play-state: running;
-}
-
-/* Stepped â€œdigitalâ€ stripes â€“ repeat with fixed pitch */
-#gallery .gallery-ambient__lines--step {
-  background-image: repeating-linear-gradient(
-    86deg,
-    rgba(0, 0, 0, 0) 0,
-    rgba(0, 0, 0, 0) 13px,
-    rgba(91, 217, 169, 0.22) 13px,
-    rgba(91, 217, 169, 0.22) 14px,
-    rgba(0, 0, 0, 0) 14px,
-    rgba(0, 0, 0, 0) 30px
-  );
-  background-size: 100px 100px;
-}
-
-/* Second layer: inverted angle + offset phase (step & repeat with offset) */
-#gallery .gallery-ambient__lines--offset {
-  background-image: repeating-linear-gradient(
-    -94deg,
-    rgba(0, 0, 0, 0) 0,
-    rgba(0, 0, 0, 0) 19px,
-    rgba(50, 131, 207, 0.2) 19px,
-    rgba(50, 131, 207, 0.2) 20px,
-    rgba(0, 0, 0, 0) 20px,
-    rgba(0, 0, 0, 0) 42px
-  );
-  background-size: 130px 130px;
-  background-position: 44px 18px;
-  opacity: 0.2;
-  mix-blend-mode: screen;
-  animation-duration: 28s;
-  animation-direction: reverse;
-}
-
-@keyframes galleryAmbientLinesDrift {
-  0% {
-    background-position: 0 0;
-  }
-
-  100% {
-    background-position: 200px 160px;
+  to {
+    background-position: 100% 100%;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  #gallery .gallery-ambient__wave,
-  #gallery .gallery-ambient__lines {
+  #gallery .gallery-ambient--fallback {
     animation: none !important;
-    opacity: 0.35;
   }
 
   #gallery .gallery-ambient {
@@ -1624,6 +1548,26 @@ body.page-about #aboutPageInner > .about-orbit-hero {
   justify-content: flex-end;
   align-items: flex-start;
   padding: 1rem 1.15rem 1.35rem;
+  /* Always-on scrim: darker top, image color revealed toward mid/bottom */
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.88) 0%,
+    rgba(1, 2, 8, 0.6) 26%,
+    rgba(3, 5, 12, 0.22) 44%,
+    rgba(4, 6, 14, 0) 60%
+  );
+  pointer-events: none;
+}
+
+#gallery a.gallery-item .gallery-item__overlay > * {
+  position: relative;
+}
+
+/* Bottom fade for text legibility appears only on hover */
+#gallery a.gallery-item .gallery-item__overlay::before {
+  content: "";
+  position: absolute;
+  inset: 0;
   background: linear-gradient(
     to top,
     rgba(3, 6, 14, 0.72) 0%,
@@ -1632,11 +1576,10 @@ body.page-about #aboutPageInner > .about-orbit-hero {
   );
   opacity: 0;
   transition: opacity 0.55s ease;
-  pointer-events: none;
 }
 
-#gallery a.gallery-item:hover .gallery-item__overlay,
-#gallery a.gallery-item:focus-visible .gallery-item__overlay {
+#gallery a.gallery-item:hover .gallery-item__overlay::before,
+#gallery a.gallery-item:focus-visible .gallery-item__overlay::before {
   opacity: 1;
 }
 

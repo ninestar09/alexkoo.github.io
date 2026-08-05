@@ -676,6 +676,164 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   /**
+   * Index gallery: smooth flowing aurora background behind the cards (WebGL).
+   * Deep purple / magenta / crimson tones with soft diagonal light streaks.
+   * Renders at low resolution, only animates while the section is in view.
+   */
+  function initGalleryAurora() {
+    const gallerySection = document.querySelector('#gallery');
+    const canvas = gallerySection && gallerySection.querySelector('.gallery-ambient__canvas');
+    if (!canvas || canvas._auroraInit) return;
+    canvas._auroraInit = true;
+
+    const ambient = canvas.parentElement;
+    let gl = null;
+    try {
+      gl = canvas.getContext('webgl', {
+        alpha: false,
+        depth: false,
+        stencil: false,
+        antialias: false,
+        powerPreference: 'low-power'
+      });
+    } catch {
+      /* fall through to CSS fallback */
+    }
+    if (!gl) {
+      canvas.style.display = 'none';
+      ambient.classList.add('gallery-ambient--fallback');
+      return;
+    }
+
+    const vsSrc = 'attribute vec2 a;void main(){gl_Position=vec4(a,0.0,1.0);}';
+    const fsSrc = [
+      'precision mediump float;',
+      'uniform vec2 uRes;',
+      'uniform float uTime;',
+      'float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453123);}',
+      'float noise(vec2 p){',
+      '  vec2 i=floor(p);vec2 f=fract(p);vec2 u=f*f*(3.0-2.0*f);',
+      '  return mix(mix(hash(i),hash(i+vec2(1.0,0.0)),u.x),mix(hash(i+vec2(0.0,1.0)),hash(i+vec2(1.0,1.0)),u.x),u.y);',
+      '}',
+      'float fbm(vec2 p){',
+      '  float v=0.0;float a=0.5;',
+      '  for(int k=0;k<4;k++){v+=a*noise(p);p*=2.03;a*=0.5;}',
+      '  return v;',
+      '}',
+      'void main(){',
+      '  vec2 uv=gl_FragCoord.xy/uRes;',
+      '  vec2 p=uv*vec2(uRes.x/uRes.y,1.0)*1.5;',
+      '  float t=uTime*0.045;',
+      // domain-warped fbm drives the fluid color flow
+      '  vec2 q=vec2(fbm(p+vec2(0.0,t)),fbm(p+vec2(5.2,t*1.3)));',
+      '  float n=fbm(p+2.2*q+vec2(t*0.7,-t*0.4));',
+      '  vec3 deep=vec3(0.015,0.025,0.075);',
+      '  vec3 indigo=vec3(0.06,0.10,0.32);',
+      '  vec3 blue=vec3(0.10,0.28,0.62);',
+      '  vec3 violet=vec3(0.24,0.14,0.52);',
+      '  vec3 darkPurple=vec3(0.14,0.06,0.30);',
+      '  vec3 col=mix(deep,darkPurple,smoothstep(0.15,0.55,n));',
+      '  col=mix(col,indigo,smoothstep(0.40,0.75,q.x)*0.9);',
+      '  col=mix(col,blue,smoothstep(0.45,0.85,q.y)*0.75);',
+      '  col=mix(col,violet,smoothstep(0.62,0.95,n)*0.8);',
+      // soft diagonal light streaks drifting through the field
+      '  float axis=dot(uv-0.5,vec2(0.7071,0.7071));',
+      '  float streaks=0.5+0.5*sin(axis*9.0+n*4.0+t*1.4);',
+      '  col+=vec3(0.03,0.07,0.13)*pow(streaks,3.0);',
+      // vignette so the field melts into the page's black background
+      '  float vig=smoothstep(0.92,0.30,distance(uv,vec2(0.5,0.45)));',
+      '  col*=mix(0.25,1.0,vig);',
+      '  gl_FragColor=vec4(col,1.0);',
+      '}'
+    ].join('\n');
+
+    function compile(type, src) {
+      const sh = gl.createShader(type);
+      gl.shaderSource(sh, src);
+      gl.compileShader(sh);
+      if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+        gl.deleteShader(sh);
+        return null;
+      }
+      return sh;
+    }
+
+    const vs = compile(gl.VERTEX_SHADER, vsSrc);
+    const fs = compile(gl.FRAGMENT_SHADER, fsSrc);
+    if (!vs || !fs) {
+      canvas.style.display = 'none';
+      ambient.classList.add('gallery-ambient--fallback');
+      return;
+    }
+
+    const prog = gl.createProgram();
+    gl.attachShader(prog, vs);
+    gl.attachShader(prog, fs);
+    gl.linkProgram(prog);
+    gl.useProgram(prog);
+
+    const buf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+    const locA = gl.getAttribLocation(prog, 'a');
+    gl.enableVertexAttribArray(locA);
+    gl.vertexAttribPointer(locA, 2, gl.FLOAT, false, 0, 0);
+
+    const locRes = gl.getUniformLocation(prog, 'uRes');
+    const locTime = gl.getUniformLocation(prog, 'uTime');
+
+    // Low internal resolution keeps the gradient silky and the GPU cost tiny
+    function resize() {
+      const w = Math.max(1, Math.min(960, Math.round(canvas.clientWidth * 0.4)));
+      const h = Math.max(1, Math.round(w * (canvas.clientHeight / Math.max(1, canvas.clientWidth))));
+      if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w;
+        canvas.height = h;
+        gl.viewport(0, 0, w, h);
+      }
+    }
+
+    const t0 = performance.now() - Math.random() * 60000;
+
+    function draw() {
+      resize();
+      gl.uniform2f(locRes, canvas.width, canvas.height);
+      gl.uniform1f(locTime, (performance.now() - t0) / 1000);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+    }
+
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduceMotion) {
+      requestAnimationFrame(draw);
+      return;
+    }
+
+    let raf = 0;
+    let inView = false;
+
+    function loop() {
+      if (!canvas.isConnected) {
+        raf = 0;
+        io.disconnect();
+        return;
+      }
+      draw();
+      raf = inView ? requestAnimationFrame(loop) : 0;
+    }
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          inView = entry.isIntersecting;
+          if (inView && !raf) raf = requestAnimationFrame(loop);
+        });
+      },
+      { rootMargin: '10% 0px 10% 0px' }
+    );
+    io.observe(gallerySection);
+  }
+
+  /**
    * Nested gallery project view: open card content inside #gallery without a full page reload.
    */
   let galleryDetailSwiper = null;
@@ -928,6 +1086,7 @@ document.addEventListener('DOMContentLoaded', () => {
           initHeroIntroCubes();
           initGalleryAmbientObserver();
           initGalleryCardMotion();
+          initGalleryAurora();
           initAboutFadeUpObserver();
           initSpatialMaker();
           pageTxPlayEnter();
@@ -1099,6 +1258,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   initGalleryAmbientObserver();
   initGalleryCardMotion();
+  initGalleryAurora();
   initAboutFadeUpObserver();
   initSpatialMaker();
 
